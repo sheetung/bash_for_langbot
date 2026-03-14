@@ -271,6 +271,11 @@ install_dependencies() {
 create_directories() {
     log_info "创建必要的目录..."
 
+    # 获取脚本所在目录的绝对路径
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # 切换到项目根目录
+    cd "$SCRIPT_DIR/.." || return 1
+
     # 确保在正确的工作目录
     if [ ! -d "LangBot" ]; then
         mkdir -p LangBot || return 1
