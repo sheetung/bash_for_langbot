@@ -666,28 +666,49 @@ manual_deploy() {
     log_info "========================================"
     echo ""
 
-    log_info "步骤 1/5: 创建目录结构..."
+    log_info "步骤 1/4: 创建目录结构..."
     create_directories || { log_error "创建目录失败"; return 1; }
     log_success "目录创建完成"
     echo ""
 
-    log_info "步骤 2/5: 安装 uv 包管理器..."
-    install_uv || { log_error "安装 uv 失败"; return 1; }
-    log_success "uv 安装完成"
-    echo ""
-
-    log_info "步骤 3/5: 下载 LangBot Release..."
+    log_info "步骤 2/4: 下载 LangBot Release..."
     log_info "正在从 GitHub 下载最新版本..."
     download_langbot_release || { log_error "下载 LangBot Release 失败"; return 1; }
     log_success "下载并解压完成"
     echo ""
 
-    log_info "步骤 4/5: 安装 Python 依赖..."
-    install_python_deps || { log_error "安装 Python 依赖失败"; return 1; }
-    log_success "依赖安装完成"
+    log_info "步骤 3/4: 检查 Python 依赖..."
+    cd "$(dirname "$0")/../LangBot"
+
+    # 检查是否包含虚拟环境
+    if [ ! -d "venv" ]; then
+        log_info "未找到虚拟环境，正在创建..."
+        python3 -m venv venv || { log_error "创建虚拟环境失败"; cd "$(dirname "$0")"; return 1; }
+        log_success "虚拟环境创建完成"
+
+        # 激活虚拟环境并安装依赖
+        log_info "安装 Python 依赖..."
+        source venv/bin/activate || { log_error "激活虚拟环境失败"; cd "$(dirname "$0")"; return 1; }
+        pip install -r requirements.txt || { log_error "安装依赖失败"; deactivate; cd "$(dirname "$0")"; return 1; }
+        deactivate
+        log_success "依赖安装完成"
+    else
+        log_success "虚拟环境已存在"
+        log_info "检查 requirements.txt 是否存在..."
+        if [ -f "requirements.txt" ]; then
+            log_info "运行 pip install -r requirements.txt..."
+            source venv/bin/activate || { log_error "激活虚拟环境失败"; cd "$(dirname "$0")"; return 1; }
+            pip install -r requirements.txt || { log_error "更新依赖失败"; deactivate; cd "$(dirname "$0")"; return 1; }
+            deactivate
+            log_success "依赖检查完成"
+        else
+            log_warning "未找到 requirements.txt，跳过依赖检查"
+        fi
+    fi
     echo ""
 
-    log_info "步骤 5/5: 生成配置文件..."
+    log_info "步骤 4/4: 生成配置文件..."
+    cd "$(dirname "$0")/.."
     generate_config || { log_error "生成配置文件失败"; return 1; }
     log_success "配置生成完成"
     echo ""
