@@ -14,23 +14,25 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # 日志函数
 log_info() {
-    echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+    echo -e "${BLUE}[INFO]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
 log_success() {
-    echo "[SUCCESS] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+    echo -e "${GREEN}[SUCCESS]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
 log_warning() {
-    echo "[WARNING] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+    echo -e "${YELLOW}[WARNING]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
 log_error() {
-    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+    echo -e "${RED}[ERROR]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
 # 检查 sudo 权限
@@ -45,6 +47,18 @@ check_sudo() {
     fi
 }
 
+# 检测是否在中国大陆
+check_china() {
+    # 尝试访问国内网站判断
+    if curl -s --connect-timeout 3 https://www.baidu.com > /dev/null 2>&1; then
+        log_info "检测到中国大陆网络环境"
+        return 0
+    else
+        log_info "检测到非中国大陆网络环境"
+        return 1
+    fi
+}
+
 # 显示更新日志
 show_changelog() {
     show_menu
@@ -56,16 +70,16 @@ show_menu() {
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
     clear
-    echo "========================================"
-    echo "    LangBot 一键部署脚本"
-    echo "    版本: 1.0.0"
-    echo "========================================"
-    echo "1. 包管理器部署 (PyPI + uv)"
-    echo "2. 手动部署 (源码编译)"
-    echo "3. Docker 部署 (推荐)"
-    echo "4. 检查系统环境"
-    echo "5. 退出"
-    echo "========================================"
+    echo -e "${CYAN}========================================${NC}"
+    echo -e "    ${PURPLE}LangBot 一键部署脚本${NC}"
+    echo -e "    ${YELLOW}版本: 1.0.0${NC}"
+    echo -e "${CYAN}========================================${NC}"
+    echo -e "${GREEN}1.${NC} 包管理器部署 (PyPI + uv)"
+    echo -e "${GREEN}2.${NC} 手动部署 (源码编译)"
+    echo -e "${GREEN}3.${NC} Docker 部署 (推荐)"
+    echo -e "${GREEN}4.${NC} 检查系统环境"
+    echo -e "${GREEN}5.${NC} 退出"
+    echo -e "${CYAN}========================================${NC}"
     
     # 检查是否有管道输入
     if [ -p /dev/stdin ]; then
@@ -73,7 +87,7 @@ show_menu() {
         read -r choice
     else
         # 从终端读取输入
-        read -p "请选择部署方式 [1-5]: " -r choice
+        read -p "$(echo -e "${CYAN}请选择部署方式 [1-5]: ${NC}")" -r choice
     fi
     
     # 清理输入，移除可能的多余字符
@@ -153,9 +167,9 @@ EOF
 # 检查系统环境
 check_system() {
     clear
-    echo "========================================"
-    echo "    系统环境检查"
-    echo "========================================"
+    echo -e "${CYAN}========================================${NC}"
+    echo -e "    ${PURPLE}系统环境检查${NC}"
+    echo -e "${CYAN}========================================${NC}"
 
     # 检查操作系统
     OS=$(uname -s)
@@ -212,7 +226,7 @@ check_system() {
     fi
 
     echo ""
-    read -p "按 Enter 继续..."
+    read -p "$(echo -e "${CYAN}按 Enter 继续...${NC}")"
 }
 
 # 安装依赖
@@ -262,19 +276,27 @@ install_uv() {
         return 0
     fi
 
+    # 检测是否在中国大陆
+    check_china
+    IS_CHINA=$?
+
     # 检测系统类型
     if command -v pip3 &> /dev/null; then
-        log_info "使用 pip3 安装 uv..."
-        pip3 install uv || {
-            log_warning "pip3 安装失败，尝试使用国内镜像源..."
+        if [ $IS_CHINA -eq 0 ]; then
+            log_info "使用 pip3 安装 uv (国内源)..."
             pip3 install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
-        }
+        else
+            log_info "使用 pip3 安装 uv..."
+            pip3 install uv
+        fi
     elif command -v pip &> /dev/null; then
-        log_info "使用 pip 安装 uv..."
-        pip install uv || {
-            log_warning "pip 安装失败，尝试使用国内镜像源..."
+        if [ $IS_CHINA -eq 0 ]; then
+            log_info "使用 pip 安装 uv (国内源)..."
             pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
-        }
+        else
+            log_info "使用 pip 安装 uv..."
+            pip install uv
+        fi
     else
         log_error "无法找到 pip，请先安装 Python 和 pip"
         return 1
@@ -296,9 +318,20 @@ install_langbot() {
     cd LangBot
     log_info "在 LangBot 目录中安装..."
 
+    # 检测是否在中国大陆
+    check_china
+    IS_CHINA=$?
+
     # 运行 uvx 安装 LangBot
     log_info "使用 uvx 安装 LangBot..."
-    uvx langbot@latest
+    if [ $IS_CHINA -eq 0 ]; then
+        log_info "使用国内源加速下载..."
+        # 设置国内PyPI镜像
+        export UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+        uvx langbot@latest
+    else
+        uvx langbot@latest
+    fi
 
     if [ $? -eq 0 ]; then
         log_success "LangBot 安装成功"
