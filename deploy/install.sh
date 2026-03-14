@@ -738,18 +738,16 @@ manual_deploy() {
 
         # 激活虚拟环境并安装依赖
         log_info "安装 Python 依赖..."
-        source venv/bin/activate || { log_error "激活虚拟环境失败"; deactivate; cd "$BASE_DIR"; return 1; }
-        pip install -r requirements.txt || { log_error "安装依赖失败"; deactivate; cd "$BASE_DIR"; return 1; }
-        deactivate
+        source venv/bin/activate || { log_error "激活虚拟环境失败"; cd "$BASE_DIR"; return 1; }
+        pip install -r requirements.txt || { log_error "安装依赖失败"; cd "$BASE_DIR"; return 1; }
         log_success "依赖安装完成"
     else
         log_success "虚拟环境已存在"
         log_info "检查 requirements.txt 是否存在..."
         if [ -f "requirements.txt" ]; then
             log_info "运行 pip install -r requirements.txt..."
-            source venv/bin/activate || { log_error "激活虚拟环境失败"; deactivate; cd "$BASE_DIR"; return 1; }
-            pip install -r requirements.txt || { log_error "更新依赖失败"; deactivate; cd "$BASE_DIR"; return 1; }
-            deactivate
+            source venv/bin/activate || { log_error "激活虚拟环境失败"; cd "$BASE_DIR"; return 1; }
+            pip install -r requirements.txt || { log_error "更新依赖失败"; cd "$BASE_DIR"; return 1; }
             log_success "依赖检查完成"
         else
             log_warning "未找到 requirements.txt，跳过依赖检查"
