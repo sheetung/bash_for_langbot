@@ -565,13 +565,19 @@ download_langbot_release() {
     else
         log_info "下载地址: $DOWNLOAD_URL"
         log_info "这可能需要几分钟，请耐心等待..."
+        log_info "正在下载中，请勿中断..."
 
-        curl -L -o "langbot-${LATEST_VERSION}-all.zip" "$DOWNLOAD_URL"
+        # 使用 --progress-bar 显示下载进度，--max-time 设置最大下载时间（10分钟）
+        curl -L --progress-bar --max-time 600 -o "langbot-${LATEST_VERSION}-all.zip" "$DOWNLOAD_URL"
+        CURL_EXIT_CODE=$?
 
-        if [ $? -eq 0 ]; then
+        if [ $CURL_EXIT_CODE -eq 0 ]; then
             log_success "下载完成"
+        elif [ $CURL_EXIT_CODE -eq 28 ]; then
+            log_error "下载超时，请检查网络连接或稍后重试"
+            return 1
         else
-            log_error "下载失败"
+            log_error "下载失败 (错误码: $CURL_EXIT_CODE)"
             return 1
         fi
     fi
@@ -627,17 +633,43 @@ generate_config() {
 
 # 手动部署 LangBot
 manual_deploy() {
+    log_info "========================================"
     log_info "开始手动部署 LangBot..."
-
-    create_directories || { log_error "创建目录失败"; return 1; }
-    install_uv || { log_error "安装 uv 失败"; return 1; }
-    download_langbot_release || { log_error "下载 LangBot Release 失败"; return 1; }
-    install_python_deps || { log_error "安装 Python 依赖失败"; return 1; }
-    generate_config || { log_error "生成配置文件失败"; return 1; }
-
+    log_info "此过程可能需要几分钟，请耐心等待"
+    log_info "========================================"
     echo ""
+
+    log_info "步骤 1/5: 创建目录结构..."
+    create_directories || { log_error "创建目录失败"; return 1; }
+    log_success "目录创建完成"
+    echo ""
+
+    log_info "步骤 2/5: 安装 uv 包管理器..."
+    install_uv || { log_error "安装 uv 失败"; return 1; }
+    log_success "uv 安装完成"
+    echo ""
+
+    log_info "步骤 3/5: 下载 LangBot Release..."
+    log_info "正在从 GitHub 下载最新版本..."
+    download_langbot_release || { log_error "下载 LangBot Release 失败"; return 1; }
+    log_success "下载并解压完成"
+    echo ""
+
+    log_info "步骤 4/5: 安装 Python 依赖..."
+    install_python_deps || { log_error "安装 Python 依赖失败"; return 1; }
+    log_success "依赖安装完成"
+    echo ""
+
+    log_info "步骤 5/5: 生成配置文件..."
+    generate_config || { log_error "生成配置文件失败"; return 1; }
+    log_success "配置生成完成"
+    echo ""
+
+    log_info "========================================"
     log_success "LangBot 手动部署完成！"
-    log_info "运行 'start-daemon' 启动服务"
+    log_info "========================================"
+    log_info "运行 './install.sh start-daemon' 启动服务"
+    log_info "或运行 './install.sh start' 前台启动查看日志"
 }
 
 # Docker 部署相关函数
