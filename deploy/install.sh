@@ -502,6 +502,59 @@ linuxmirrors_install_docker() {
     fi
 }
 
+# 安装Docker
+install_add_docker() {
+    log_info "正在安装 Docker 环境..."
+    
+    if command -v apt &>/dev/null || command -v yum &>/dev/null || command -v dnf &>/dev/null; then
+        linuxmirrors_install_docker
+    else
+        # 针对 Alpine, Arch 等不支持 linuxmirrors 脚本的系统
+        log_info "使用包管理器直接安装 Docker..."
+        
+        # 检测操作系统类型
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            OS=$ID
+        fi
+        
+        case "$OS" in
+            alpine)
+                sudo apk add docker docker-compose
+                ;;
+            arch|manjaro)
+                sudo pacman -S docker docker-compose
+                ;;
+            *)
+                log_error "不支持的操作系统，请手动安装 Docker"
+                log_info "请访问 https://docs.docker.com/engine/install/ 查看安装指南"
+                return 1
+                ;;
+        esac
+        
+        if [ $? -eq 0 ]; then
+            install_add_docker_cn
+            log_success "Docker 安装完成"
+        else
+            log_error "Docker 安装失败"
+            return 1
+        fi
+    fi
+    
+    sleep 2
+}
+
+# 主安装函数
+install_docker() {
+    if ! command -v docker &>/dev/null; then
+        install_add_docker
+    else
+        log_success "Docker 环境已经安装过了！"
+        # 检查是否需要配置国内镜像源
+        install_add_docker_cn
+    fi
+}
+
 # Docker部署
 docker_deploy() {
     log_info "========================================"
