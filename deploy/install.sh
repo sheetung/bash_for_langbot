@@ -531,6 +531,9 @@ install_manual_dependencies() {
 download_langbot_release() {
     log_info "下载 LangBot Release..."
 
+    # 保存当前目录
+    CURRENT_DIR=$(pwd)
+    
     cd "$(dirname "$0")/.."
 
     # 创建 LangBot 目录
@@ -540,6 +543,11 @@ download_langbot_release() {
     # 获取最新版本信息
     log_info "正在获取最新版本信息..."
     LATEST_VERSION=$(curl -s https://api.github.com/repos/langbot-app/LangBot/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    if [ -z "$LATEST_VERSION" ]; then
+        log_error "获取版本信息失败"
+        cd "$CURRENT_DIR"
+        return 1
+    fi
     log_info "最新版本: $LATEST_VERSION"
 
     # 下载地址（使用 GitHub Release）
@@ -569,17 +577,28 @@ download_langbot_release() {
             log_success "下载完成"
         elif [ $CURL_EXIT_CODE -eq 28 ]; then
             log_error "下载超时，请检查网络连接或稍后重试"
+            cd "$CURRENT_DIR"
             return 1
         else
             log_error "下载失败 (错误码: $CURL_EXIT_CODE)"
+            cd "$CURRENT_DIR"
             return 1
         fi
     fi
 
     # 解压
     log_info "解压安装包..."
-    unzip -q "langbot-${LATEST_VERSION}-all.zip"
+    if unzip -q "langbot-${LATEST_VERSION}-all.zip"; then
+        log_success "解压完成"
+    else
+        log_error "解压失败"
+        cd "$CURRENT_DIR"
+        return 1
+    fi
 
+    # 回到原来的目录
+    cd "$CURRENT_DIR"
+    
     log_success "LangBot 下载并解压完成"
 }
 
