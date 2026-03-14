@@ -52,7 +52,15 @@ check_china() {
     # 尝试访问国内网站判断
     if curl -s --connect-timeout 3 https://www.baidu.com > /dev/null 2>&1; then
         log_info "检测到中国大陆网络环境"
-        return 0
+        
+        # 检测是否能访问外网
+        if curl -s --connect-timeout 3 https://github.com > /dev/null 2>&1; then
+            log_info "但可以访问外网，使用原始源"
+            return 1  # 返回1表示不使用国内镜像
+        else
+            log_info "无法访问外网，使用国内镜像"
+            return 0  # 返回0表示使用国内镜像
+        fi
     else
         log_info "检测到非中国大陆网络环境"
         return 1
@@ -541,8 +549,11 @@ download_langbot_release() {
     DOWNLOAD_URL="https://github.com/langbot-app/LangBot/releases/download/${LATEST_VERSION}/langbot-${LATEST_VERSION}-all.zip"
 
     # 国内镜像优化（使用 ghproxy）
-    if command -v curl &> /dev/null; then
+    check_china
+    IS_CHINA=$?
+    if [ $IS_CHINA -eq 0 ]; then
         DOWNLOAD_URL="https://ghproxy.com/${DOWNLOAD_URL}"
+        log_info "使用国内镜像加速: $DOWNLOAD_URL"
     fi
 
     # 检查是否已存在
