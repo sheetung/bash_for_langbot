@@ -38,7 +38,7 @@ show_menu() {
     echo -e "    ${GREEN}版本: 1.0${NC}"
     echo -e "${CYAN}========================================${NC}"
     echo -e "${GREEN}1.${NC} 包管理器部署 (PyPI + uv)"
-    echo -e "${YELLOW}2.${NC} 手动部署 (测试内容)"
+    echo -e "${YELLOW}2.${NC} 手动部署"
     echo -e "${YELLOW}3.${NC} Docker 部署 (测试内容)"
     echo -e "${YELLOW}4.${NC} 检查系统环境 (测试内容)"
     echo -e "${RED}0.${NC} 退出"
@@ -48,15 +48,6 @@ show_menu() {
 
     # 清理输入
     choice=$(echo "$choice" | tr -d '\r' | tr -d '\n' | sed 's/[^0-9]*//g')
-
-    # 检查输入是否为空
-    if [ -z "$choice" ]; then
-        echo ""
-        log_error "输入有误，请重新输入 1-5"
-        read -p "按 Enter 继续..."
-        show_menu
-        return
-    fi
 
     case $choice in
         1)
@@ -421,24 +412,25 @@ EOF
 
 # 主函数
 main() {
-    case "$1" in
-        package)
-            log_info "启动包管理器部署..."
-            create_directories
-            install_uv
-            install_langbot
-            configure_langbot
-            echo ""
-            log_success "LangBot 安装完成！"
-            log_info "运行 './install.sh start-daemon' 启动服务"
-            ;;
-        help|--help|-h|usage|--usage)
-            show_help
-            ;;
-        *)
-            show_menu
-            ;;
-    esac
+    # case "$1" in
+    #     package)
+    #         log_info "启动包管理器部署..."
+    #         create_directories
+    #         install_uv
+    #         install_langbot
+    #         configure_langbot
+    #         echo ""
+    #         log_success "LangBot 安装完成！"
+    #         log_info "运行 './install.sh start-daemon' 启动服务"
+    #         ;;
+    #     help|--help|-h|usage|--usage)
+    #         show_help
+    #         ;;
+    #     *)
+    #         show_menu
+    #         ;;
+    # esac
+    show_menu
 }
 
 # 执行主函数
