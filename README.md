@@ -34,14 +34,11 @@ cd deploy
 
 ## 目录结构
 
-```
+
+```bash
 bash_for_langbot/
 ├── deploy/
 │   ├── install.sh              # 主脚本（菜单）
-│   ├── install-one-click.sh    # 一键安装脚本
-│   ├── install-package.sh      # 包管理器部署
-│   ├── install-manual.sh       # 手动部署
-│   └── install-docker.sh       # Docker 部署
 ├── logs/                       # 日志目录
 ├── data/                       # 数据目录
 ├── config/                     # 配置目录

@@ -115,14 +115,12 @@ show_menu() {
             ;;
         2)
             log_info "启动手动部署..."
-            # 手动部署功能待集成
-            log_info "手动部署功能正在开发中"
+            manual_deploy || { log_error "手动部署失败"; show_menu; return; }
             show_menu
             ;;
         3)
             log_info "启动 Docker 部署..."
-            # Docker 部署功能待集成
-            log_info "Docker 部署功能正在开发中"
+            docker_deploy || { log_error "Docker 部署失败"; show_menu; return; }
             show_menu
             ;;
         4)
@@ -492,6 +490,297 @@ show_status() {
     log_info "日志文件: logs/langbot.log"
 }
 
+# 手动部署相关函数
+
+# 安装系统依赖（手动部署）
+install_manual_dependencies() {
+    log_info "检查/安装系统依赖..."
+
+    OS=$(uname -s)
+    if [ "$OS" = "Linux" ]; then
+        if command -v apt-get &> /dev/null; then
+            log_info "检测到 Debian/Ubuntu 系统，安装依赖..."
+            apt-get update -qq
+            apt-get install -y -qq curl wget unzip build-essential python3 python3-pip python3-venv
+        elif command -v yum &> /dev/null; then
+            log_info "检测到 CentOS/RHEL 系统，安装依赖..."
+            yum install -y -q curl wget unzip gcc python3 python3-pip
+        elif command -v pacman &> /dev/null; then
+            log_info "检测到 Arch Linux 系统，安装依赖..."
+            pacman -Sy --noconfirm curl wget unzip gcc python python-pip
+        fi
+    elif [ "$OS" = "Darwin" ]; then
+        if ! command -v brew &> /dev/null; then
+            log_warning "Homebrew 未安装，请先安装 Homebrew"
+            log_info "访问 https://brew.sh 了解安装方法"
+            return 1
+        fi
+        log_info "检测到 macOS，安装依赖..."
+        brew install curl wget unzip gcc python
+    fi
+
+    log_success "系统依赖安装完成"
+}
+
+# 下载 LangBot Release
+download_langbot_release() {
+    log_info "下载 LangBot Release..."
+
+    cd "$(dirname "$0")/.."
+
+    # 创建 LangBot 目录
+    mkdir -p LangBot
+    cd LangBot
+
+    # 获取最新版本信息
+    log_info "正在获取最新版本信息..."
+    LATEST_VERSION=$(curl -s https://api.github.com/repos/langbot-app/LangBot/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    log_info "最新版本: $LATEST_VERSION"
+
+    # 下载地址（使用 GitHub Release）
+    DOWNLOAD_URL="https://github.com/langbot-app/LangBot/releases/download/${LATEST_VERSION}/langbot-${LATEST_VERSION}-all.zip"
+
+    # 国内镜像优化（使用 ghproxy）
+    if command -v curl &> /dev/null; then
+        DOWNLOAD_URL="https://ghproxy.com/${DOWNLOAD_URL}"
+    fi
+
+    # 检查是否已存在
+    if [ -f "langbot-${LATEST_VERSION}-all.zip" ]; then
+        log_success "下载包已存在，跳过下载"
+    else
+        log_info "下载地址: $DOWNLOAD_URL"
+        log_info "这可能需要几分钟，请耐心等待..."
+
+        curl -L -o "langbot-${LATEST_VERSION}-all.zip" "$DOWNLOAD_URL"
+
+        if [ $? -eq 0 ]; then
+            log_success "下载完成"
+        else
+            log_error "下载失败"
+            return 1
+        fi
+    fi
+
+    # 解压
+    log_info "解压安装包..."
+    unzip -q "langbot-${LATEST_VERSION}-all.zip"
+
+    log_success "LangBot 下载并解压完成"
+}
+
+# 安装 Python 依赖（手动部署）
+install_python_deps() {
+    log_info "安装 Python 依赖..."
+
+    cd "$(dirname "$0")/../LangBot"
+
+    # 检查是否已安装依赖
+    if [ -f "requirements.txt" ]; then
+        log_info "使用 requirements.txt 安装依赖..."
+
+        # 使用 uv 安装
+        if command -v uv &> /dev/null; then
+            uv sync || return 1
+        else
+            # 使用 pip 安装
+            if command -v pip3 &> /dev/null; then
+                pip3 install -r requirements.txt || return 1
+            elif command -v pip &> /dev/null; then
+                pip install -r requirements.txt || return 1
+            else
+                log_error "无法找到 pip，请先安装 Python 和 pip"
+                return 1
+            fi
+        fi
+
+        log_success "依赖安装完成"
+    else
+        log_warning "未找到 requirements.txt，跳过依赖安装"
+    fi
+}
+
+# 生成配置文件（手动部署）
+generate_config() {
+    log_info "生成配置文件..."
+
+    cd "$(dirname "$0")/.."
+
+    # 检查是否需要生成配置
+    if [ ! -f "data/config.yaml" ]; then
+        log_info "首次运行将自动生成配置文件"
+
+        cd LangBot
+        uv run main.py
+
+        if [ $? -eq 0 ]; then
+            log_success "配置文件生成成功"
+        else
+            log_error "配置文件生成失败"
+            return 1
+        fi
+    else
+        log_success "配置文件已存在"
+    fi
+
+    cd "$(dirname "$0")/.."
+}
+
+# 手动部署 LangBot
+manual_deploy() {
+    log_info "开始手动部署 LangBot..."
+
+    create_directories || { log_error "创建目录失败"; return 1; }
+    install_manual_dependencies || { log_error "安装系统依赖失败"; return 1; }
+    install_uv || { log_error "安装 uv 失败"; return 1; }
+    download_langbot_release || { log_error "下载 LangBot Release 失败"; return 1; }
+    install_python_deps || { log_error "安装 Python 依赖失败"; return 1; }
+    generate_config || { log_error "生成配置文件失败"; return 1; }
+
+    echo ""
+    log_success "LangBot 手动部署完成！"
+    log_info "运行 'start-daemon' 启动服务"
+}
+
+# Docker 部署相关函数
+
+# 检查 Docker
+check_docker() {
+    log_info "检查 Docker 环境..."
+
+    if ! command -v docker &> /dev/null; then
+        log_error "Docker 未安装，请先安装 Docker"
+        log_info "访问 https://docs.docker.com/get-docker/ 了解安装方法"
+        return 1
+    fi
+
+    DOCKER_VERSION=$(docker --version)
+    log_success "Docker 已安装: $DOCKER_VERSION"
+
+    # 检查 Docker Compose
+    if command -v docker-compose &> /dev/null; then
+        COMPOSE_VERSION=$(docker-compose --version)
+        log_success "Docker Compose 已安装: $COMPOSE_VERSION"
+        export HAS_COMPOSE=0
+    elif docker compose version &> /dev/null 2>&1; then
+        COMPOSE_VERSION=$(docker compose version)
+        log_success "Docker Compose v2 已安装: $COMPOSE_VERSION"
+        export HAS_COMPOSE=1
+    else
+        log_error "Docker Compose 未安装"
+        log_info "访问 https://docs.docker.com/compose/install/ 了解安装方法"
+        return 1
+    fi
+}
+
+# 克隆 LangBot 仓库
+clone_langbot_repo() {
+    log_info "克隆 LangBot 仓库..."
+
+    cd "$(dirname "$0")/../LangBot"
+
+    if [ -d "docker" ]; then
+        log_success "LangBot 仓库已存在"
+    else
+        # 使用国内镜像加速
+        if command -v git &> /dev/null; then
+            log_info "使用国内镜像克隆仓库..."
+
+            # 尝试使用 gitee 镜像
+            git clone --depth 1 https://gitee.com/mirrors/LangBot.git . 2>/dev/null || {
+                log_warning "Gitee 镜像不可用，使用 GitHub 原始仓库"
+                git clone --depth 1 https://github.com/langbot-app/LangBot.git .
+            }
+        else
+            log_error "git 未安装，请先安装 git"
+            return 1
+        fi
+
+        log_success "LangBot 仓库克隆完成"
+    fi
+}
+
+# 配置 Docker Compose（国内环境优化）
+configure_docker_compose() {
+    log_info "配置 Docker Compose（国内环境优化）..."
+
+    cd "$(dirname "$0")/../LangBot"
+
+    # 检查 docker-compose.yaml 是否存在
+    if [ ! -f "docker/docker-compose.yaml" ]; then
+        log_error "docker-compose.yaml 不存在"
+        return 1
+    fi
+
+    # 备份原始配置
+    if [ ! -f "docker/docker-compose.yaml.backup" ]; then
+        cp docker/docker-compose.yaml docker/docker-compose.yaml.backup
+        log_info "已备份原始配置"
+    fi
+
+    # 国内镜像源配置
+    log_info "配置国内镜像源..."
+
+    # 替换镜像源
+    if command -v sed &> /dev/null; then
+        # 使用国内镜像
+        sed -i 's|docker.langbot.app/langbot-public/rockchin/langbot:latest|docker.langbot.app/langbot-public/rockchin/langbot:latest|g' docker/docker-compose.yaml
+    elif command -v gsed &> /dev/null; then
+        sed -i 's|docker.langbot.app/langbot-public/rockchin/langbot:latest|docker.langbot.app/langbot-public/rockchin/langbot:latest|g' docker/docker-compose.yaml
+    else
+        log_warning "sed 不可用，请手动修改 docker/docker-compose.yaml"
+        log_info "将镜像源替换为: docker.langbot.app/langbot-public/rockchin/langbot:latest"
+    fi
+
+    log_success "Docker Compose 配置完成"
+}
+
+# 拉取 Docker 镜像
+pull_docker_image() {
+    log_info "拉取 Docker 镜像..."
+
+    cd "$(dirname "$0")/../LangBot/docker"
+
+    if [ "$HAS_COMPOSE" = 1 ]; then
+        docker compose pull || return 1
+    else
+        docker-compose pull || return 1
+    fi
+
+    log_success "Docker 镜像拉取完成"
+}
+
+# 启动 LangBot（Docker）
+start_langbot_docker() {
+    log_info "启动 LangBot 容器..."
+
+    cd "$(dirname "$0")/../LangBot/docker"
+
+    if [ "$HAS_COMPOSE" = 1 ]; then
+        docker compose up -d
+    else
+        docker-compose up -d
+    fi
+
+    log_success "LangBot 已启动"
+}
+
+# Docker 部署 LangBot
+docker_deploy() {
+    log_info "开始 Docker 部署 LangBot..."
+
+    create_directories || { log_error "创建目录失败"; return 1; }
+    check_docker || { log_error "检查 Docker 环境失败"; return 1; }
+    clone_langbot_repo || { log_error "克隆 LangBot 仓库失败"; return 1; }
+    configure_docker_compose || { log_error "配置 Docker Compose 失败"; return 1; }
+    pull_docker_image || { log_error "拉取 Docker 镜像失败"; return 1; }
+    start_langbot_docker || { log_error "启动 LangBot 容器失败"; return 1; }
+
+    echo ""
+    log_success "LangBot Docker 部署完成！"
+    log_info "运行 'docker status' 查看状态"
+}
+
 # 主函数
 main() {
     case "$1" in
@@ -504,6 +793,14 @@ main() {
             echo ""
             log_success "LangBot 安装完成！"
             log_info "运行 'start-daemon' 启动服务"
+            ;;
+        manual)
+            log_info "启动手动部署..."
+            manual_deploy
+            ;;
+        docker)
+            log_info "启动 Docker 部署..."
+            docker_deploy
             ;;
         start)
             start_langbot
@@ -519,6 +816,50 @@ main() {
             ;;
         status)
             show_status
+            ;;
+        docker-start)
+            log_info "启动 LangBot Docker 容器..."
+            start_langbot_docker
+            ;;
+        docker-stop)
+            log_info "停止 LangBot Docker 容器..."
+            cd "$(dirname "$0")/../LangBot/docker"
+            if [ "$HAS_COMPOSE" = 1 ]; then
+                docker compose down
+            else
+                docker-compose down
+            fi
+            log_success "LangBot 容器已停止"
+            ;;
+        docker-restart)
+            log_info "重启 LangBot Docker 容器..."
+            cd "$(dirname "$0")/../LangBot/docker"
+            if [ "$HAS_COMPOSE" = 1 ]; then
+                docker compose down
+                docker compose up -d
+            else
+                docker-compose down
+                docker-compose up -d
+            fi
+            log_success "LangBot 容器已重启"
+            ;;
+        docker-status)
+            log_info "查看 LangBot Docker 容器状态..."
+            cd "$(dirname "$0")/../LangBot/docker"
+            if [ "$HAS_COMPOSE" = 1 ]; then
+                docker compose ps
+            else
+                docker-compose ps
+            fi
+            ;;
+        docker-logs)
+            log_info "查看 LangBot Docker 容器日志..."
+            cd "$(dirname "$0")/../LangBot/docker"
+            if [ "$HAS_COMPOSE" = 1 ]; then
+                docker compose logs -f
+            else
+                docker-compose logs -f
+            fi
             ;;
         check)
             check_system
