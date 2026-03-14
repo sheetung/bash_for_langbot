@@ -40,7 +40,7 @@ show_menu() {
     echo -e "${CYAN}========================================${NC}"
     echo -e "${GREEN}1.${NC} 包管理器部署 (PyPI + uv)"
     echo -e "${GREEN}2.${NC} 手动部署"
-    echo -e "${GREEN}3.${NC} Docker 部署"
+    echo -e "${GREEN}3.${GREEN} Docker 部署（推荐）"
     echo -e "${YELLOW}4.${NC} 检查系统环境 (测试内容)"
     echo -e "${RED}0.${NC} 退出"
     echo -e "${CYAN}========================================${NC}"
@@ -601,7 +601,7 @@ docker_deploy() {
     if ! command -v docker &> /dev/null; then
         log_warning "Docker 未安装，开始自动安装..."
         
-        # 使用新的install_docker函数
+        # 使用强化版的 install_docker 函数
         if install_docker; then
             log_success "Docker 安装成功"
         else
@@ -636,11 +636,9 @@ docker_deploy() {
     mkdir -p LangBot/docker
     cd LangBot/docker
     
-    # 创建docker-compose.yaml文件
+    # 创建docker-compose.yaml文件 (去除了过时的 version 字段)
     log_info "创建 docker-compose.yaml 文件..."
     cat > docker-compose.yaml << 'EOF'
-version: '3.8'
-
 services:
   langbot:
     image: langbot-app/langbot:latest
@@ -668,21 +666,21 @@ EOF
         return 1
     fi
     
-    # 检查是否为国内环境，使用国内镜像
+    # 检查是否为国内环境，使用国内专属加速镜像
     check_china
     local IS_CHINA=$?
     if [ $IS_CHINA -eq 0 ]; then
-        log_info "国内环境，配置国内镜像..."
+        log_info "检测到国内网络环境，自动配置专属加速镜像..."
         sed -i 's|image: langbot-app/langbot:latest|image: docker.langbot.app/langbot-public/rockchin/langbot:latest|g' docker-compose.yaml
-        log_success "已配置国内镜像"
+        log_success "已成功配置国内镜像"
     fi
     
     # 创建数据目录
     log_info "创建数据目录..."
     mkdir -p data
     
-    # 启动Docker Compose
-    log_info "启动 Docker Compose..."
+    # 启动Docker Compose (全面加上 sudo 防止越权失败)
+    log_info "正在拉取镜像并启动容器 (这可能需要几分钟)..."
     if command -v docker-compose &> /dev/null; then
         sudo docker-compose up -d
     else
@@ -692,16 +690,16 @@ EOF
     if [ $? -eq 0 ]; then
         log_success "Docker Compose 启动成功"
     else
-        log_error "Docker Compose 启动失败"
+        log_error "Docker Compose 启动失败，请检查网络或 Docker 服务状态"
         cd "$CURRENT_DIR"
         return 1
     fi
     
     # 等待容器启动
-    log_info "等待容器启动..."
+    log_info "等待容器初始化..."
     sleep 5
     
-    # 检查容器状态
+    # 检查容器状态 (加上 sudo)
     if command -v docker-compose &> /dev/null; then
         sudo docker-compose ps
     else
@@ -711,10 +709,10 @@ EOF
     cd "$CURRENT_DIR"
     
     log_success "========================================"
-    log_success "Docker 部署完成！"
+    log_success "🎉 LangBot Docker 部署圆满完成！"
     log_success "========================================"
     log_info "部署目录: $(pwd)/LangBot/docker"
-    log_info "管理命令 (当前会话可能需要加 sudo):"
+    log_info "管理命令 (建议加上 sudo 执行):"
     log_info "  查看状态: cd LangBot/docker && sudo docker compose ps"
     log_info "  查看日志: cd LangBot/docker && sudo docker compose logs -f"
     log_info "  停止服务: cd LangBot/docker && sudo docker compose down"
