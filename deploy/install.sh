@@ -318,16 +318,28 @@ manual_deploy() {
     cd "$extract_dir"
     
     # 安装uv
-    log_info "安装 uv..."
-    if ! command -v uv &> /dev/null; then
-        if command -v pip3 &> /dev/null; then
-            pip3 install uv
-        elif command -v pip &> /dev/null; then
-            pip install uv
+    log_info "检查 uv 安装状态..."
+    if command -v uv &> /dev/null; then
+        log_success "uv 已安装，跳过安装步骤"
+    else
+        log_info "uv 未安装，准备安装..."
+        
+        # 使用清华源安装uv（可选）
+        log_info "是否使用清华源安装依赖? (y/n)"
+        read -r use_tsinghua
+        if [[ $use_tsinghua =~ ^[Yy]$ ]]; then
+            log_info "使用清华源..."
+            if command -v pip3 &> /dev/null; then
+                pip3 install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+            elif command -v pip &> /dev/null; then
+                pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+            fi
         else
-            log_error "无法安装 uv，请先安装 pip"
-            cd "$CURRENT_DIR"
-            return 1
+            if command -v pip3 &> /dev/null; then
+                pip3 install uv
+            elif command -v pip &> /dev/null; then
+                pip install uv
+            fi
         fi
         
         if [ $? -ne 0 ]; then
@@ -335,16 +347,8 @@ manual_deploy() {
             cd "$CURRENT_DIR"
             return 1
         fi
-    else
-        log_success "uv 已安装"
-    fi
-    
-    # 使用清华源安装uv（可选）
-    log_info "是否使用清华源安装依赖? (y/n)"
-    read -r use_tsinghua
-    if [[ $use_tsinghua =~ ^[Yy]$ ]]; then
-        log_info "使用清华源..."
-        pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+        
+        log_success "uv 安装完成"
     fi
     
     # 同步依赖
