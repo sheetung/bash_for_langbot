@@ -38,7 +38,7 @@ show_menu() {
     echo -e "    ${GREEN}版本: 1.0${NC}"
     echo -e "${CYAN}========================================${NC}"
     echo -e "${GREEN}1.${NC} 包管理器部署 (PyPI + uv)"
-    echo -e "${YELLOW}2.${NC} 手动部署"
+    echo -e "${GREEN}2.${NC} 手动部署"
     echo -e "${YELLOW}3.${NC} Docker 部署 (测试内容)"
     echo -e "${YELLOW}4.${NC} 检查系统环境 (测试内容)"
     echo -e "${RED}0.${NC} 退出"
@@ -69,16 +69,8 @@ show_menu() {
             show_menu
             ;;
         3)
-            log_info "启动 Docker 部署 (测试内容)..."
-            log_info "========================================"
-            log_info "Docker 部署测试内容..."
-            log_info "========================================"
-            log_info "1. 检查 Docker 环境"
-            log_info "2. 克隆 LangBot 仓库"
-            log_info "3. 配置 Docker Compose"
-            log_info "4. 拉取 Docker 镜像"
-            log_info "5. 启动 LangBot 容器"
-            log_info "========================================"
+            log_info "启动 Docker 部署..."
+            docker_deploy
             read -p "按 Enter 继续..."
             show_menu
             ;;
@@ -400,6 +392,240 @@ manual_deploy() {
     log_success "========================================"
     log_info "部署目录: $(pwd)/$extract_dir"
     log_info "启动命令: cd $extract_dir && uv run main.py"
+}
+
+# 配置Docker国内镜像源
+install_add_docker_cn() {
+    log_info "配置 Docker 国内镜像源..."
+    
+    # 检测是否为中国网络环境
+    check_china
+    local IS_CHINA=$?
+    
+    if [ $IS_CHINA -eq 0 ]; then
+        log_info "国内环境，配置国内镜像源..."
+        sudo mkdir -p /etc/docker
+        sudo tee /etc/docker/daemon.json > /dev/null << 'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.1ms.run",
+    "https://docker.m.ixdev.cn",
+    "https://hub.rat.dev",
+    "https://dockerproxy.net",
+    "https://docker.hlmirror.com",
+    "https://docker.m.daocloud.io",
+    "https://docker.kejilion.pro",
+    "https://hub.1panel.dev",
+    "https://dockerproxy.cool",
+    "https://docker.apiba.cn"
+  ]
+}
+EOF
+        log_success "Docker 国内镜像源配置完成"
+        
+        # 重启Docker服务
+        log_info "重启 Docker 服务..."
+        if command -v systemctl &> /dev/null; then
+            sudo systemctl daemon-reload
+            sudo systemctl restart docker
+        else
+            sudo service docker restart
+        fi
+        log_success "Docker 服务已重启"
+    else
+        log_info "非国内环境，使用默认镜像源"
+    fi
+}
+
+# 使用linuxmirrors安装Docker
+linuxmirrors_install_docker() {
+    log_info "使用 LinuxMirrors 脚本安装 Docker..."
+    
+    # 检测是否为中国网络环境
+    check_china
+    local IS_CHINA=$?
+    
+    if [ $IS_CHINA -eq 0 ]; then
+        log_info "国内环境，使用国内镜像源安装..."
+        bash <(curl -sSL https://linuxmirrors.cn/docker.sh) \
+          --source mirrors.huaweicloud.com/docker-ce \
+          --source-registry docker.1ms.run \
+          --protocol https \
+          --use-intranet-source false \
+          --install-latest true \
+          --close-firewall false \
+          --ignore-backup-tips
+    else
+        log_info "非国内环境，使用官方源安装..."
+        bash <(curl -sSL https://linuxmirrors.cn/docker.sh) \
+          --source download.docker.com \
+          --source-registry registry.hub.docker.com \
+          --protocol https \
+          --use-intranet-source false \
+          --install-latest true \
+          --close-firewall false \
+          --ignore-backup-tips
+    fi
+    
+    if [ $? -eq 0 ]; then
+        log_success "Docker 安装完成"
+        # 配置国内镜像源
+        install_add_docker_cn
+        # 添加用户到docker组
+        sudo usermod -aG docker $USER
+        log_warning "请注销并重新登录以使 Docker 权限生效"
+    else
+        log_error "Docker 安装失败"
+        return 1
+    fi
+}
+
+# Docker部署
+docker_deploy() {
+    log_info "========================================"
+    log_info "开始 Docker 部署 LangBot"
+    log_info "========================================"
+    
+    # 保存当前目录
+    local CURRENT_DIR=$(pwd)
+    
+    # 检查Docker是否安装
+    log_info "检查 Docker 安装状态..."
+    if ! command -v docker &> /dev/null; then
+        log_warning "Docker 未安装，开始自动安装..."
+        
+        # 检测操作系统类型
+        if [ -f /etc/os-release ]; then
+            . /etc/os-release
+            OS=$ID
+        fi
+        
+        # 使用linuxmirrors脚本安装Docker（支持apt/yum/dnf的系统）
+        if command -v apt &>/dev/null || command -v yum &>/dev/null || command -v dnf &>/dev/null; then
+            linuxmirrors_install_docker
+        else
+            log_error "不支持的操作系统，请手动安装 Docker"
+            log_info "请访问 https://docs.docker.com/engine/install/ 查看安装指南"
+            cd "$CURRENT_DIR"
+            return 1
+        fi
+        
+        if [ $? -ne 0 ]; then
+            log_error "Docker 安装失败"
+            cd "$CURRENT_DIR"
+            return 1
+        fi
+    else
+        DOCKER_VERSION=$(docker --version)
+        log_success "Docker 已安装: $DOCKER_VERSION"
+        # 检查是否需要配置国内镜像源
+        install_add_docker_cn
+    fi
+    
+    # 检查Docker Compose
+    log_info "检查 Docker Compose 安装状态..."
+    if command -v docker-compose &> /dev/null; then
+        COMPOSE_VERSION=$(docker-compose --version)
+        log_success "Docker Compose 已安装: $COMPOSE_VERSION"
+    elif docker compose version &> /dev/null 2>&1; then
+        COMPOSE_VERSION=$(docker compose version)
+        log_success "Docker Compose v2 已安装: $COMPOSE_VERSION"
+    else
+        log_error "Docker Compose 未安装"
+        log_info "请安装 Docker Compose: https://docs.docker.com/compose/install/"
+        cd "$CURRENT_DIR"
+        return 1
+    fi
+    
+    # 创建LangBot/docker目录
+    log_info "创建 LangBot/docker 目录..."
+    mkdir -p LangBot/docker
+    cd LangBot/docker
+    
+    # 创建docker-compose.yaml文件
+    log_info "创建 docker-compose.yaml 文件..."
+    cat > docker-compose.yaml << 'EOF'
+version: '3.8'
+
+services:
+  langbot:
+    image: langbot-app/langbot:latest
+    container_name: langbot
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - langbot-network
+
+networks:
+  langbot-network:
+    driver: bridge
+EOF
+    
+    if [ $? -eq 0 ]; then
+        log_success "docker-compose.yaml 创建完成"
+    else
+        log_error "docker-compose.yaml 创建失败"
+        cd "$CURRENT_DIR"
+        return 1
+    fi
+    
+    # 检查是否为国内环境，使用国内镜像
+    check_china
+    local IS_CHINA=$?
+    if [ $IS_CHINA -eq 0 ]; then
+        log_info "国内环境，配置国内镜像..."
+        sed -i 's|image: langbot-app/langbot:latest|image: docker.langbot.app/langbot-public/rockchin/langbot:latest|g' docker-compose.yaml
+        log_success "已配置国内镜像"
+    fi
+    
+    # 创建数据目录
+    log_info "创建数据目录..."
+    mkdir -p data
+    
+    # 启动Docker Compose
+    log_info "启动 Docker Compose..."
+    if command -v docker-compose &> /dev/null; then
+        docker-compose up -d
+    else
+        docker compose up -d
+    fi
+    
+    if [ $? -eq 0 ]; then
+        log_success "Docker Compose 启动成功"
+    else
+        log_error "Docker Compose 启动失败"
+        cd "$CURRENT_DIR"
+        return 1
+    fi
+    
+    # 等待容器启动
+    log_info "等待容器启动..."
+    sleep 5
+    
+    # 检查容器状态
+    if command -v docker-compose &> /dev/null; then
+        docker-compose ps
+    else
+        docker compose ps
+    fi
+    
+    cd "$CURRENT_DIR"
+    
+    log_success "========================================"
+    log_success "Docker 部署完成！"
+    log_success "========================================"
+    log_info "部署目录: $(pwd)/LangBot/docker"
+    log_info "管理命令:"
+    log_info "  查看状态: cd LangBot/docker && docker compose ps"
+    log_info "  查看日志: cd LangBot/docker && docker compose logs -f"
+    log_info "  停止服务: cd LangBot/docker && docker compose down"
+    log_info "  重启服务: cd LangBot/docker && docker compose restart"
+    log_info "访问地址: http://localhost:8080"
 }
 
 # 显示更新日志
