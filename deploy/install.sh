@@ -237,6 +237,13 @@ install_dependencies() {
 create_directories() {
     log_info "创建必要的目录..."
 
+    # 确保在正确的工作目录
+    if [ ! -d "LangBot" ]; then
+        mkdir -p LangBot
+    fi
+    
+    cd LangBot
+    
     mkdir -p logs
     mkdir -p data
     mkdir -p config
@@ -281,15 +288,13 @@ install_uv() {
 install_langbot() {
     log_info "开始安装 LangBot..."
 
-    # 检查是否在 LangBot 目录中运行
-    if [ -f "main.py" ]; then
-        log_info "在 LangBot 目录中运行..."
-    else
-        # 创建 LangBot 目录
+    # 确保在 LangBot 目录中
+    if [ ! -d "LangBot" ]; then
         mkdir -p LangBot
-        cd LangBot
-        log_info "创建 LangBot 工作目录"
     fi
+    
+    cd LangBot
+    log_info "在 LangBot 目录中安装..."
 
     # 运行 uvx 安装 LangBot
     log_info "使用 uvx 安装 LangBot..."
@@ -308,6 +313,13 @@ install_langbot() {
 configure_langbot() {
     log_info "配置 LangBot..."
 
+    # 确保在 LangBot 目录中
+    if [ ! -d "LangBot" ]; then
+        mkdir -p LangBot
+    fi
+    
+    cd LangBot
+    
     # 检查配置文件是否存在
     if [ -f "data/config.yaml" ]; then
         log_success "配置文件已存在: data/config.yaml"
@@ -320,10 +332,13 @@ configure_langbot() {
 start_langbot() {
     log_info "启动 LangBot..."
 
-    # 检查是否在 LangBot 目录
-    if [ -f "LangBot/main.py" ]; then
-        cd LangBot
+    # 确保在 LangBot 目录中
+    if [ ! -d "LangBot" ]; then
+        log_error "LangBot 目录不存在，请先安装"
+        return 1
     fi
+    
+    cd LangBot
 
     # 启动服务
     log_info "LangBot 将在 http://localhost:5300 启动"
@@ -333,7 +348,7 @@ start_langbot() {
 
     # 保存 PID
     PID=$!
-    echo $PID > ../logs/langbot.pid
+    echo $PID > logs/langbot.pid
     log_success "LangBot 已启动，PID: $PID"
 }
 
@@ -341,14 +356,17 @@ start_langbot() {
 start_langbot_daemon() {
     log_info "启动 LangBot (后台运行)..."
 
-    # 检查是否在 LangBot 目录
-    if [ -f "LangBot/main.py" ]; then
-        cd LangBot
+    # 确保在 LangBot 目录中
+    if [ ! -d "LangBot" ]; then
+        log_error "LangBot 目录不存在，请先安装"
+        return 1
     fi
+    
+    cd LangBot
 
     # 创建日志文件
-    LOG_FILE="../logs/langbot.log"
-    PID_FILE="../logs/langbot.pid"
+    LOG_FILE="logs/langbot.log"
+    PID_FILE="logs/langbot.pid"
 
     # 后台运行
     nohup uv run main.py > "$LOG_FILE" 2>&1 &
@@ -372,6 +390,14 @@ start_langbot_daemon() {
 # 停止 LangBot
 stop_langbot() {
     log_info "停止 LangBot..."
+
+    # 确保在 LangBot 目录中
+    if [ ! -d "LangBot" ]; then
+        log_error "LangBot 目录不存在"
+        return 1
+    fi
+    
+    cd LangBot
 
     if [ -f "logs/langbot.pid" ]; then
         PID=$(cat logs/langbot.pid)
@@ -407,6 +433,14 @@ restart_langbot() {
 show_status() {
     log_info "LangBot 状态:"
     echo ""
+
+    # 确保在 LangBot 目录中
+    if [ ! -d "LangBot" ]; then
+        log_error "LangBot 目录不存在"
+        return 1
+    fi
+    
+    cd LangBot
 
     if [ -f "logs/langbot.pid" ]; then
         PID=$(cat logs/langbot.pid)
