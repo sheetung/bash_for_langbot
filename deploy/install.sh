@@ -714,20 +714,34 @@ manual_deploy() {
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-    log_info "步骤 1/4: 创建目录结构..."
+    log_info "步骤 1/5: 检查 LangBot 目录..."
     cd "$BASE_DIR"
+
+    if [ -d "LangBot" ]; then
+        log_warning "检测到 LangBot 目录已存在"
+        echo ""
+        read -p "是否覆盖现有 LangBot 目录？(y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_info "取消部署"
+            return 0
+        fi
+        log_info "将覆盖现有 LangBot 目录"
+        rm -rf LangBot
+    fi
+
+    log_info "步骤 2/5: 创建目录结构..."
     create_directories || { log_error "创建目录失败"; return 1; }
     log_success "目录创建完成"
     echo ""
 
-    log_info "步骤 2/4: 下载 LangBot Release..."
+    log_info "步骤 3/5: 下载 LangBot Release..."
     log_info "正在从 GitHub 下载最新版本..."
-    cd "$BASE_DIR"
     download_langbot_release || { log_error "下载 LangBot Release 失败"; return 1; }
     log_success "下载并解压完成"
     echo ""
 
-    log_info "步骤 3/4: 检查 Python 依赖..."
+    log_info "步骤 4/5: 检查 Python 依赖..."
     cd "$BASE_DIR/LangBot"
 
     # 检查是否包含虚拟环境
@@ -756,7 +770,7 @@ manual_deploy() {
     cd "$BASE_DIR"
     echo ""
 
-    log_info "步骤 4/4: 生成配置文件..."
+    log_info "步骤 5/5: 生成配置文件..."
     generate_config || { log_error "生成配置文件失败"; return 1; }
     log_success "配置生成完成"
     echo ""
