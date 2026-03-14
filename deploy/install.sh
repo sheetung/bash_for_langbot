@@ -90,17 +90,25 @@ show_menu() {
     case $choice in
         1)
             log_info "启动包管理器部署..."
-            "$SCRIPT_DIR/install-package.sh" install
+            create_directories
+            install_uv
+            install_langbot
+            configure_langbot
+            echo ""
+            log_success "LangBot 安装完成！"
+            log_info "运行 'start-daemon' 启动服务"
             show_menu
             ;;
         2)
             log_info "启动手动部署..."
-            "$SCRIPT_DIR/install-manual.sh" install
+            # 手动部署功能待集成
+            log_info "手动部署功能正在开发中"
             show_menu
             ;;
         3)
             log_info "启动 Docker 部署..."
-            "$SCRIPT_DIR/install-docker.sh" install
+            # Docker 部署功能待集成
+            log_info "Docker 部署功能正在开发中"
             show_menu
             ;;
         4)
@@ -223,23 +231,227 @@ install_dependencies() {
     fi
 }
 
+# 包管理器部署相关函数
+
+# 创建必要的目录
+create_directories() {
+    log_info "创建必要的目录..."
+
+    mkdir -p logs
+    mkdir -p data
+    mkdir -p config
+
+    log_success "目录创建完成"
+}
+
+# 安装 uv
+install_uv() {
+    log_info "安装 uv..."
+
+    # 检查是否已安装
+    if command -v uv &> /dev/null; then
+        UV_VERSION=$(uv --version)
+        log_success "uv 已安装: $UV_VERSION"
+        return 0
+    fi
+
+    # 检测系统类型
+    if command -v pip3 &> /dev/null; then
+        log_info "使用 pip3 安装 uv..."
+        pip3 install uv || {
+            log_warning "pip3 安装失败，尝试使用国内镜像源..."
+            pip3 install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+        }
+    elif command -v pip &> /dev/null; then
+        log_info "使用 pip 安装 uv..."
+        pip install uv || {
+            log_warning "pip 安装失败，尝试使用国内镜像源..."
+            pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+        }
+    else
+        log_error "无法找到 pip，请先安装 Python 和 pip"
+        return 1
+    fi
+
+    UV_VERSION=$(uv --version)
+    log_success "uv 安装完成: $UV_VERSION"
+}
+
+# 安装 LangBot
+install_langbot() {
+    log_info "开始安装 LangBot..."
+
+    # 检查是否在 LangBot 目录中运行
+    if [ -f "main.py" ]; then
+        log_info "在 LangBot 目录中运行..."
+    else
+        # 创建 LangBot 目录
+        mkdir -p LangBot
+        cd LangBot
+        log_info "创建 LangBot 工作目录"
+    fi
+
+    # 运行 uvx 安装 LangBot
+    log_info "使用 uvx 安装 LangBot..."
+    uvx langbot@latest
+
+    if [ $? -eq 0 ]; then
+        log_success "LangBot 安装成功"
+        return 0
+    else
+        log_error "LangBot 安装失败"
+        return 1
+    fi
+}
+
+# 配置 LangBot
+configure_langbot() {
+    log_info "配置 LangBot..."
+
+    # 检查配置文件是否存在
+    if [ -f "data/config.yaml" ]; then
+        log_success "配置文件已存在: data/config.yaml"
+    else
+        log_warning "配置文件不存在，首次运行将自动生成"
+    fi
+}
+
+# 启动 LangBot
+start_langbot() {
+    log_info "启动 LangBot..."
+
+    # 检查是否在 LangBot 目录
+    if [ -f "LangBot/main.py" ]; then
+        cd LangBot
+    fi
+
+    # 启动服务
+    log_info "LangBot 将在 http://localhost:5300 启动"
+    log_info "按 Ctrl+C 停止服务"
+
+    uv run main.py
+
+    # 保存 PID
+    PID=$!
+    echo $PID > ../logs/langbot.pid
+    log_success "LangBot 已启动，PID: $PID"
+}
+
+# 后台运行 LangBot
+start_langbot_daemon() {
+    log_info "启动 LangBot (后台运行)..."
+
+    # 检查是否在 LangBot 目录
+    if [ -f "LangBot/main.py" ]; then
+        cd LangBot
+    fi
+
+    # 创建日志文件
+    LOG_FILE="../logs/langbot.log"
+    PID_FILE="../logs/langbot.pid"
+
+    # 后台运行
+    nohup uv run main.py > "$LOG_FILE" 2>&1 &
+    PID=$!
+    echo $PID > "$PID_FILE"
+
+    sleep 3
+
+    if ps -p $PID > /dev/null; then
+        log_success "LangBot 已在后台启动"
+        log_info "PID: $PID"
+        log_info "日志文件: $LOG_FILE"
+        log_info "访问地址: http://localhost:5300"
+    else
+        log_error "LangBot 启动失败，请查看日志: $LOG_FILE"
+        cat "$LOG_FILE"
+        return 1
+    fi
+}
+
+# 停止 LangBot
+stop_langbot() {
+    log_info "停止 LangBot..."
+
+    if [ -f "logs/langbot.pid" ]; then
+        PID=$(cat logs/langbot.pid)
+        if ps -p $PID > /dev/null; then
+            kill $PID
+            log_success "LangBot 已停止"
+            rm logs/langbot.pid
+        else
+            log_warning "LangBot 进程不存在"
+        fi
+    else
+        # 尝试通过 ps 查找进程
+        PID=$(ps aux | grep "uv run main.py" | grep -v grep | awk '{print $2}')
+        if [ -n "$PID" ]; then
+            kill $PID
+            log_success "LangBot 已停止"
+            rm -f logs/langbot.pid
+        else
+            log_warning "未找到运行中的 LangBot 进程"
+        fi
+    fi
+}
+
+# 重启 LangBot
+restart_langbot() {
+    log_info "重启 LangBot..."
+    stop_langbot
+    sleep 2
+    start_langbot_daemon
+}
+
+# 显示状态
+show_status() {
+    log_info "LangBot 状态:"
+    echo ""
+
+    if [ -f "logs/langbot.pid" ]; then
+        PID=$(cat logs/langbot.pid)
+        if ps -p $PID > /dev/null; then
+            log_success "LangBot 正在运行 (PID: $PID)"
+        else
+            log_warning "LangBot 未运行 (PID 文件存在但进程不存在)"
+        fi
+    else
+        log_info "LangBot 未运行"
+    fi
+
+    echo ""
+    log_info "访问地址: http://localhost:5300"
+    log_info "配置文件: data/config.yaml"
+    log_info "日志文件: logs/langbot.log"
+}
+
 # 主函数
 main() {
-    # 获取脚本所在目录的绝对路径
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    
     case "$1" in
         package)
             log_info "启动包管理器部署..."
-            "$SCRIPT_DIR/install-package.sh" install
+            create_directories
+            install_uv
+            install_langbot
+            configure_langbot
+            echo ""
+            log_success "LangBot 安装完成！"
+            log_info "运行 'start-daemon' 启动服务"
             ;;
-        manual)
-            log_info "启动手动部署..."
-            "$SCRIPT_DIR/install-manual.sh" install
+        start)
+            start_langbot
             ;;
-        docker)
-            log_info "启动 Docker 部署..."
-            "$SCRIPT_DIR/install-docker.sh" install
+        start-daemon)
+            start_langbot_daemon
+            ;;
+        stop)
+            stop_langbot
+            ;;
+        restart)
+            restart_langbot
+            ;;
+        status)
+            show_status
             ;;
         check)
             check_system
