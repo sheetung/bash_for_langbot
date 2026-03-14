@@ -265,12 +265,6 @@ create_directories() {
         mkdir -p LangBot || return 1
     fi
     
-    cd LangBot || return 1
-    
-    mkdir -p logs || return 1
-    mkdir -p data || return 1
-    mkdir -p config || return 1
-
     log_success "目录创建完成"
 }
 
