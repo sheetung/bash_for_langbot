@@ -8,7 +8,14 @@
       "Bash(find:*)",
       "Bash(unzip:*)",
       "Bash(chmod:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(git push:*)",
+      "Bash(./deploy/install.sh --help 2>&1 || true)",
+      "Bash(./deploy/install-package.sh --help 2>&1 || true)",
+      "Bash(./deploy/install-manual.sh --help 2>&1 || true)",
+      "Bash(./deploy/install-docker.sh --help 2>&1 || true)"
     ]
   }
 }
