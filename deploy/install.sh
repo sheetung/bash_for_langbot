@@ -75,7 +75,28 @@ show_changelog() {
     echo "3. 查看帮助"
     echo "4. 退出"
     echo "========================================"
-    echo -n "请选择操作 [1-4]: "
+    read -p "请选择操作 [1-4]: " -r choice
+    # 清理输入，移除可能的多余字符
+    choice=$(echo "$choice" | tr -d '\r' | tr -d '\n' | sed 's/[^0-9]*//g')
+    case $choice in
+        1)
+            show_menu
+            ;;
+        2)
+            check_system
+            ;;
+        3)
+            show_help
+            ;;
+        4)
+            log_info "退出脚本"
+            exit 0
+            ;;
+        *)
+            log_error "无效的选择，请输入 1-4"
+            exit 1
+            ;;
+    esac
 }
 
 # 显示菜单
@@ -90,8 +111,9 @@ show_menu() {
     echo "4. 检查系统环境"
     echo "5. 退出"
     echo "========================================"
-    echo "请选择部署方式 [1-5]: "
-    read -r choice
+    read -p "请选择部署方式 [1-5]: " -r choice
+    # 清理输入，移除可能的多余字符
+    choice=$(echo "$choice" | tr -d '\r' | tr -d '\n' | sed 's/[^0-9]*//g')
     echo "DEBUG: choice='$choice'"
     case $choice in
         1)
@@ -247,8 +269,8 @@ main() {
             show_help
             ;;
         *)
-            # 显示菜单并等待用户输入
-            show_menu
+            # 显示更新日志并等待用户输入
+            show_changelog
             ;;
     esac
 }
