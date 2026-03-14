@@ -2,7 +2,8 @@
 
 ##############################################################################
 # LangBot 一键部署脚本
-# 版本：1.0
+# 版本：0.0.3
+# 作者：sheetung
 ##############################################################################
 
 # 颜色定义
@@ -35,11 +36,11 @@ show_menu() {
     clear
     echo -e "${CYAN}========================================${NC}"
     echo -e "    ${BLUE}LangBot 一键部署脚本${NC}"
-    echo -e "    ${GREEN}版本: 1.0${NC}"
+    echo -e "    ${GREEN}版本: 0.0.3${NC}"
     echo -e "${CYAN}========================================${NC}"
     echo -e "${GREEN}1.${NC} 包管理器部署 (PyPI + uv)"
     echo -e "${GREEN}2.${NC} 手动部署"
-    echo -e "${YELLOW}3.${NC} Docker 部署 (测试内容)"
+    echo -e "${GREEN}3.${NC} Docker 部署"
     echo -e "${YELLOW}4.${NC} 检查系统环境 (测试内容)"
     echo -e "${RED}0.${NC} 退出"
     echo -e "${CYAN}========================================${NC}"
@@ -443,76 +444,108 @@ EOF
     fi
 }
 
-# 使用linuxmirrors安装Docker
-linuxmirrors_install_docker() {
-    log_info "使用 LinuxMirrors 脚本安装 Docker..."
-    
-    # 检测是否为中国网络环境
-    local country=$(curl -s --max-time 3 ipinfo.io/country)
+auto_install_docker() {
+    log_info "开始自动化安装 Docker..."
     
     # 确保curl存在
     if ! command -v curl &> /dev/null; then
-        log_info "安装 curl..."
-        if command -v apt &> /dev/null; then
-            sudo apt-get update && sudo apt-get install -y curl
+        log_info "安装必需组件 curl..."
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq curl
         elif command -v yum &> /dev/null; then
-            sudo yum install -y curl
+            sudo yum install -y -q curl
         elif command -v dnf &> /dev/null; then
-            sudo dnf install -y curl
+            sudo dnf install -y -q curl
         fi
     fi
-    
-    if [ "$country" = "CN" ]; then
-        log_info "国内环境，使用华为云镜像源安装 Docker..."
-        bash <(curl -sSL https://linuxmirrors.cn/docker.sh) \
-          --source mirrors.huaweicloud.com/docker-ce \
-          --source-registry docker.1ms.run \
-          --protocol https \
-          --use-intranet-source false \
-          --install-latest true \
-          --close-firewall false \
-          --ignore-backup-tips
+
+    # 检测是否为中国网络环境 (国内环境返回0)
+    check_china
+    local IS_CHINA=$?
+
+    # 标记官方脚本是否执行成功 (初始设为失败状态 1)
+    local script_success=1
+
+    # 尝试 1: 使用 Docker 官方脚本安装
+    log_info "尝试下载 Docker 官方安装脚本..."
+    if curl -fsSL --connect-timeout 10 --retry 3 -o get-docker.sh https://get.docker.com; then
+        if [ $IS_CHINA -eq 0 ]; then
+            log_info "国内环境，使用阿里云镜像源执行官方脚本..."
+            sudo sh get-docker.sh --mirror Aliyun
+            script_success=$?
+        else
+            log_info "海外环境，直接执行官方脚本..."
+            sudo sh get-docker.sh
+            script_success=$?
+        fi
+        rm -f get-docker.sh
     else
-        log_info "海外环境，使用官方源安装 Docker..."
-        bash <(curl -sSL https://linuxmirrors.cn/docker.sh) \
-          --source download.docker.com \
-          --source-registry registry.hub.docker.com \
-          --protocol https \
-          --use-intranet-source false \
-          --install-latest true \
-          --close-firewall false \
-          --ignore-backup-tips
+        log_warning "官方脚本下载失败(可能被墙)..."
     fi
-    
-    if [ $? -eq 0 ]; then
-        log_success "Docker 安装完成"
+
+    # 核心修复：如果官方脚本 下载失败 或 执行报错(例如找不到莫名其妙的插件)，启动兜底方案！
+    if [ $script_success -ne 0 ]; then
+        log_warning "官方脚本执行失败，自动启用原生包管理器兜底方案(仅安装核心组件)..."
+        
+        # 尝试 2: 原生包管理器直接配置阿里云源 (避开多余插件，最稳定)
+        if command -v apt-get &> /dev/null; then
+            log_info "检测到 Debian/Ubuntu 系统，正在配置阿里云源..."
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ca-certificates curl gnupg lsb-release
+            sudo mkdir -p /etc/apt/keyrings
+            curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://mirrors.aliyun.com/docker-ce/linux/$(. /etc/os-release && echo "$ID") $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            sudo apt-get update -qq
+            # 【关键】这里我们只安装最核心、最稳定的基础组件，绝不安装 docker-model-plugin 这类实验性插件
+            sudo apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin
+        elif command -v yum &> /dev/null; then
+            log_info "检测到 CentOS/RHEL 系统，正在配置阿里云源..."
+            sudo yum install -y -q yum-utils
+            sudo yum-config-manager --add-repo https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+            sudo yum install -y -q docker-ce docker-ce-cli containerd.io docker-compose-plugin
+        else
+            log_error "不支持自动兜底的系统包管理器，请手动安装 Docker"
+        fi
+    fi
+
+    # 终极验证：只认可执行文件是否存在
+    if command -v docker &> /dev/null; then
+        log_success "Docker 主程序安装成功"
+        
+        # 启动并设置开机自启
+        if command -v systemctl &> /dev/null; then
+            sudo systemctl enable --now docker >/dev/null 2>&1
+        elif command -v service &> /dev/null; then
+            sudo service docker start >/dev/null 2>&1
+        fi
+        
         # 配置国内镜像源
         install_add_docker_cn
-        # 创建docker组（如果不存在）
+        
+        # 配置用户组（免 sudo）
         if ! getent group docker > /dev/null; then
-            log_info "创建 docker 用户组..."
             sudo groupadd docker
         fi
-        # 添加用户到docker组
         sudo usermod -aG docker $USER
-        log_warning "请注销并重新登录以使 Docker 权限生效"
+        log_warning "注意: 部署完成后，您可能需要注销并重新登录终端，使 Docker 权限生效。"
+        return 0
     else
-        log_error "Docker 安装失败"
+        log_error "Docker 安装彻底失败，请检查网络或系统依赖源是否损坏！"
         return 1
     fi
 }
-
 # 安装Docker
 install_add_docker() {
     log_info "正在安装 Docker 环境..."
     
     if command -v apt &>/dev/null || command -v yum &>/dev/null || command -v dnf &>/dev/null; then
-        linuxmirrors_install_docker
+        auto_install_docker
+        local ret=$?
+        sleep 2
+        return $ret  # 修复Bug: 必须将真实的安装结果返回给上层
     else
-        # 针对 Alpine, Arch 等不支持 linuxmirrors 脚本的系统
+        # 针对 Alpine, Arch 等系统
         log_info "使用包管理器直接安装 Docker..."
-        
-        # 检测操作系统类型
         if [ -f /etc/os-release ]; then
             . /etc/os-release
             OS=$ID
@@ -523,35 +556,34 @@ install_add_docker() {
                 sudo apk add docker docker-compose
                 ;;
             arch|manjaro)
-                sudo pacman -S docker docker-compose
+                sudo pacman -S --noconfirm docker docker-compose
                 ;;
             *)
-                log_error "不支持的操作系统，请手动安装 Docker"
-                log_info "请访问 https://docs.docker.com/engine/install/ 查看安装指南"
+                log_error "不支持自动安装的系统，请手动安装 Docker: https://docs.docker.com/engine/install/"
                 return 1
                 ;;
         esac
         
-        if [ $? -eq 0 ]; then
+        if command -v docker &> /dev/null; then
             install_add_docker_cn
             log_success "Docker 安装完成"
+            return 0
         else
             log_error "Docker 安装失败"
             return 1
         fi
     fi
-    
-    sleep 2
 }
 
 # 主安装函数
 install_docker() {
     if ! command -v docker &>/dev/null; then
         install_add_docker
+        return $?  # 修复Bug: 将下层的成功/失败状态透传给外层
     else
         log_success "Docker 环境已经安装过了！"
-        # 检查是否需要配置国内镜像源
         install_add_docker_cn
+        return 0
     fi
 }
 
@@ -652,9 +684,9 @@ EOF
     # 启动Docker Compose
     log_info "启动 Docker Compose..."
     if command -v docker-compose &> /dev/null; then
-        docker-compose up -d
+        sudo docker-compose up -d
     else
-        docker compose up -d
+        sudo docker compose up -d
     fi
     
     if [ $? -eq 0 ]; then
@@ -671,9 +703,9 @@ EOF
     
     # 检查容器状态
     if command -v docker-compose &> /dev/null; then
-        docker-compose ps
+        sudo docker-compose ps
     else
-        docker compose ps
+        sudo docker compose ps
     fi
     
     cd "$CURRENT_DIR"
@@ -682,11 +714,11 @@ EOF
     log_success "Docker 部署完成！"
     log_success "========================================"
     log_info "部署目录: $(pwd)/LangBot/docker"
-    log_info "管理命令:"
-    log_info "  查看状态: cd LangBot/docker && docker compose ps"
-    log_info "  查看日志: cd LangBot/docker && docker compose logs -f"
-    log_info "  停止服务: cd LangBot/docker && docker compose down"
-    log_info "  重启服务: cd LangBot/docker && docker compose restart"
+    log_info "管理命令 (当前会话可能需要加 sudo):"
+    log_info "  查看状态: cd LangBot/docker && sudo docker compose ps"
+    log_info "  查看日志: cd LangBot/docker && sudo docker compose logs -f"
+    log_info "  停止服务: cd LangBot/docker && sudo docker compose down"
+    log_info "  重启服务: cd LangBot/docker && sudo docker compose restart"
     log_info "访问地址: http://localhost:8080"
 }
 
