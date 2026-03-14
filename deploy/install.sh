@@ -551,7 +551,14 @@ download_langbot_release() {
     # 保存当前目录
     CURRENT_DIR=$(pwd)
     
-    cd "$(dirname "$0")/.."
+    # 获取脚本所在目录的绝对路径
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # 切换到项目根目录
+    cd "$SCRIPT_DIR/.." || {
+        log_error "无法切换到项目根目录"
+        cd "$CURRENT_DIR"
+        return 1
+    }
 
     # 创建 LangBot 目录
     if mkdir -p LangBot; then
@@ -776,7 +783,12 @@ check_docker() {
 clone_langbot_repo() {
     log_info "克隆 LangBot 仓库..."
 
-    cd "$(dirname "$0")/../LangBot"
+    # 获取脚本所在目录的绝对路径
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # 切换到项目根目录
+    cd "$SCRIPT_DIR/.." || return 1
+    # 进入 LangBot 目录
+    cd "LangBot" || return 1
 
     if [ -d "docker" ]; then
         log_success "LangBot 仓库已存在"
@@ -803,7 +815,12 @@ clone_langbot_repo() {
 configure_docker_compose() {
     log_info "配置 Docker Compose（国内环境优化）..."
 
-    cd "$(dirname "$0")/../LangBot"
+    # 获取脚本所在目录的绝对路径
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # 切换到项目根目录
+    cd "$SCRIPT_DIR/.." || return 1
+    # 进入 LangBot 目录
+    cd "LangBot" || return 1
 
     # 检查 docker-compose.yaml 是否存在
     if [ ! -f "docker/docker-compose.yaml" ]; then
@@ -838,7 +855,12 @@ configure_docker_compose() {
 pull_docker_image() {
     log_info "拉取 Docker 镜像..."
 
-    cd "$(dirname "$0")/../LangBot/docker"
+    # 获取脚本所在目录的绝对路径
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # 切换到项目根目录
+    cd "$SCRIPT_DIR/.." || return 1
+    # 进入 LangBot/docker 目录
+    cd "LangBot/docker" || return 1
 
     if [ "$HAS_COMPOSE" = 1 ]; then
         docker compose pull || return 1
@@ -853,7 +875,12 @@ pull_docker_image() {
 start_langbot_docker() {
     log_info "启动 LangBot 容器..."
 
-    cd "$(dirname "$0")/../LangBot/docker"
+    # 获取脚本所在目录的绝对路径
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # 切换到项目根目录
+    cd "$SCRIPT_DIR/.." || return 1
+    # 进入 LangBot/docker 目录
+    cd "LangBot/docker" || return 1
 
     if [ "$HAS_COMPOSE" = 1 ]; then
         docker compose up -d
