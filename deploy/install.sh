@@ -52,6 +52,9 @@ show_changelog() {
 
 # 显示菜单
 show_menu() {
+    # 获取脚本所在目录的绝对路径
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
     clear
     echo "========================================"
     echo "    LangBot 一键部署脚本"
@@ -63,24 +66,41 @@ show_menu() {
     echo "4. 检查系统环境"
     echo "5. 退出"
     echo "========================================"
-    read -p "请选择部署方式 [1-5]: " -r choice
+    
+    # 检查是否有管道输入
+    if [ -p /dev/stdin ]; then
+        # 从管道读取输入
+        read -r choice
+    else
+        # 从终端读取输入
+        read -p "请选择部署方式 [1-5]: " -r choice
+    fi
+    
     # 清理输入，移除可能的多余字符
     choice=$(echo "$choice" | tr -d '\r' | tr -d '\n' | sed 's/[^0-9]*//g')
     echo "DEBUG: choice='$choice'"
+    
+    # 检查输入是否为空
+    if [ -z "$choice" ]; then
+        log_error "无效的选择，请输入 1-5"
+        show_menu
+        return
+    fi
+    
     case $choice in
         1)
             log_info "启动包管理器部署..."
-            "$(dirname "$0")/install-package.sh" install
+            "$SCRIPT_DIR/install-package.sh" install
             show_menu
             ;;
         2)
             log_info "启动手动部署..."
-            "$(dirname "$0")/install-manual.sh" install
+            "$SCRIPT_DIR/install-manual.sh" install
             show_menu
             ;;
         3)
             log_info "启动 Docker 部署..."
-            "$(dirname "$0")/install-docker.sh" install
+            "$SCRIPT_DIR/install-docker.sh" install
             show_menu
             ;;
         4)
@@ -205,18 +225,21 @@ install_dependencies() {
 
 # 主函数
 main() {
+    # 获取脚本所在目录的绝对路径
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    
     case "$1" in
         package)
             log_info "启动包管理器部署..."
-            source "$(dirname "$0")/install-package.sh"
+            "$SCRIPT_DIR/install-package.sh" install
             ;;
         manual)
             log_info "启动手动部署..."
-            source "$(dirname "$0")/install-manual.sh"
+            "$SCRIPT_DIR/install-manual.sh" install
             ;;
         docker)
             log_info "启动 Docker 部署..."
-            source "$(dirname "$0")/install-docker.sh"
+            "$SCRIPT_DIR/install-docker.sh" install
             ;;
         check)
             check_system
