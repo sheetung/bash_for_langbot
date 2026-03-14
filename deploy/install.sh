@@ -616,57 +616,14 @@ download_langbot_release() {
     log_success "LangBot 下载并解压完成"
 }
 
-# 安装 Python 依赖（手动部署）
-install_python_deps() {
-    log_info "安装 Python 依赖..."
-
-    # 保存当前工作目录
-    CURRENT_DIR=$(pwd)
-    BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-
-    cd "$BASE_DIR/LangBot"
-
-    # 检查虚拟环境是否存在
-    if [ ! -d "venv" ]; then
-        log_info "未找到虚拟环境，正在创建..."
-        python3 -m venv venv || { log_error "创建虚拟环境失败"; cd "$CURRENT_DIR"; return 1; }
-        log_success "虚拟环境创建完成"
-
-        # 激活虚拟环境并安装依赖
-        log_info "安装 Python 依赖..."
-        source venv/bin/activate || { log_error "激活虚拟环境失败"; cd "$CURRENT_DIR"; return 1; }
-        if [ -f "requirements.txt" ]; then
-            pip install -r requirements.txt || { log_error "安装依赖失败"; deactivate; cd "$CURRENT_DIR"; return 1; }
-        else
-            log_warning "未找到 requirements.txt，跳过依赖安装"
-        fi
-        deactivate
-        log_success "依赖安装完成"
-    else
-        log_success "虚拟环境已存在"
-        log_info "检查 requirements.txt 是否存在..."
-        if [ -f "requirements.txt" ]; then
-            log_info "运行 pip install -r requirements.txt..."
-            source venv/bin/activate || { log_error "激活虚拟环境失败"; cd "$CURRENT_DIR"; return 1; }
-            pip install -r requirements.txt || { log_error "更新依赖失败"; deactivate; cd "$CURRENT_DIR"; return 1; }
-            deactivate
-            log_success "依赖检查完成"
-        else
-            log_warning "未找到 requirements.txt，跳过依赖检查"
-        fi
-    fi
-
-    # 返回原始目录
-    cd "$CURRENT_DIR"
-}
-
 # 生成配置文件（手动部署）
 generate_config() {
     log_info "生成配置文件..."
 
     # 保存当前工作目录
     CURRENT_DIR=$(pwd)
-    BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
     cd "$BASE_DIR"
 
@@ -675,7 +632,7 @@ generate_config() {
         log_info "首次运行将自动生成配置文件"
 
         cd "$BASE_DIR/LangBot"
-        uv run main.py
+        python3 main.py
 
         if [ $? -eq 0 ]; then
             log_success "配置文件生成成功"
@@ -700,30 +657,36 @@ manual_deploy() {
     log_info "========================================"
     echo ""
 
+    # 保存脚本所在目录
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    BASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
     log_info "步骤 1/4: 创建目录结构..."
+    cd "$BASE_DIR"
     create_directories || { log_error "创建目录失败"; return 1; }
     log_success "目录创建完成"
     echo ""
 
     log_info "步骤 2/4: 下载 LangBot Release..."
     log_info "正在从 GitHub 下载最新版本..."
+    cd "$BASE_DIR"
     download_langbot_release || { log_error "下载 LangBot Release 失败"; return 1; }
     log_success "下载并解压完成"
     echo ""
 
     log_info "步骤 3/4: 检查 Python 依赖..."
-    cd "$(dirname "$0")/../LangBot"
+    cd "$BASE_DIR/LangBot"
 
     # 检查是否包含虚拟环境
     if [ ! -d "venv" ]; then
         log_info "未找到虚拟环境，正在创建..."
-        python3 -m venv venv || { log_error "创建虚拟环境失败"; cd "$(dirname "$0")"; return 1; }
+        python3 -m venv venv || { log_error "创建虚拟环境失败"; cd "$BASE_DIR"; return 1; }
         log_success "虚拟环境创建完成"
 
         # 激活虚拟环境并安装依赖
         log_info "安装 Python 依赖..."
-        source venv/bin/activate || { log_error "激活虚拟环境失败"; cd "$(dirname "$0")"; return 1; }
-        pip install -r requirements.txt || { log_error "安装依赖失败"; deactivate; cd "$(dirname "$0")"; return 1; }
+        source venv/bin/activate || { log_error "激活虚拟环境失败"; deactivate; cd "$BASE_DIR"; return 1; }
+        pip install -r requirements.txt || { log_error "安装依赖失败"; deactivate; cd "$BASE_DIR"; return 1; }
         deactivate
         log_success "依赖安装完成"
     else
@@ -731,18 +694,18 @@ manual_deploy() {
         log_info "检查 requirements.txt 是否存在..."
         if [ -f "requirements.txt" ]; then
             log_info "运行 pip install -r requirements.txt..."
-            source venv/bin/activate || { log_error "激活虚拟环境失败"; cd "$(dirname "$0")"; return 1; }
-            pip install -r requirements.txt || { log_error "更新依赖失败"; deactivate; cd "$(dirname "$0")"; return 1; }
+            source venv/bin/activate || { log_error "激活虚拟环境失败"; deactivate; cd "$BASE_DIR"; return 1; }
+            pip install -r requirements.txt || { log_error "更新依赖失败"; deactivate; cd "$BASE_DIR"; return 1; }
             deactivate
             log_success "依赖检查完成"
         else
             log_warning "未找到 requirements.txt，跳过依赖检查"
         fi
     fi
+    cd "$BASE_DIR"
     echo ""
 
     log_info "步骤 4/4: 生成配置文件..."
-    cd "$(dirname "$0")/.."
     generate_config || { log_error "生成配置文件失败"; return 1; }
     log_success "配置生成完成"
     echo ""
