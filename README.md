@@ -7,15 +7,10 @@ LangBot 的自动化部署工具，支持三种部署方式：包管理器、手
 ### 方式一：curl 一键安装（推荐）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sheetung/bash_for_langbot/main/deploy/install.sh | bash -s -- docker
+curl -fsSL https://raw.githubusercontent.com/sheetung/bash_for_langbot/master/deploy/install.sh | bash
 ```
 
-然后运行：
-```bash
-./deploy/install.sh
-```
-
-选择部署方式（推荐 Docker）。
+脚本会自动显示菜单，您只需选择对应的部署方式即可。
 
 ### 方式二：本地执行
 
@@ -25,11 +20,15 @@ cd deploy
 
 # 查看菜单
 ./install.sh
+# 选择部署方式后自动进入对应安装流程
 
 # 或直接使用对应部署方式
 ./install-package.sh install    # 包管理器部署
 ./install-manual.sh install     # 手动部署
 ./install-docker.sh install     # Docker 部署
+
+# 查看帮助
+./install.sh help
 ```
 
 ## 部署方式对比
@@ -48,6 +47,7 @@ cd deploy
 bash_for_langbot/
 ├── deploy/
 │   ├── install.sh              # 主脚本（菜单）
+│   ├── install-one-click.sh    # 一键安装脚本
 │   ├── install-package.sh      # 包管理器部署
 │   ├── install-manual.sh       # 手动部署
 │   └── install-docker.sh       # Docker 部署
