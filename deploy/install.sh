@@ -72,16 +72,8 @@ show_menu() {
             show_menu
             ;;
         2)
-            log_info "启动手动部署 (测试内容)..."
-            log_info "========================================"
-            log_info "手动部署测试内容..."
-            log_info "========================================"
-            log_info "1. 检查系统环境"
-            log_info "2. 下载 LangBot Release"
-            log_info "3. 解压 Release 包"
-            log_info "4. 安装 Python 依赖"
-            log_info "5. 生成配置文件"
-            log_info "========================================"
+            log_info "启动手动部署..."
+            manual_deploy
             read -p "按 Enter 继续..."
             show_menu
             ;;
@@ -224,6 +216,183 @@ configure_langbot() {
     else
         log_success "配置文件已存在"
     fi
+}
+
+# 检查是否为中国网络环境
+check_china() {
+    # 尝试访问 Google 检测网络环境
+    if curl -s --connect-timeout 3 http://www.google.com > /dev/null 2>&1; then
+        return 1  # 非中国网络
+    else
+        return 0  # 中国网络
+    fi
+}
+
+# 手动部署 - 下载Release包
+manual_deploy() {
+    log_info "========================================"
+    log_info "开始手动部署 LangBot"
+    log_info "========================================"
+    
+    # 保存当前目录
+    local CURRENT_DIR=$(pwd)
+    
+    # 检查依赖
+    if ! command -v curl &> /dev/null && ! command -v wget &> /dev/null; then
+        log_error "需要 curl 或 wget 来下载 Release 包"
+        return 1
+    fi
+    
+    if ! command -v unzip &> /dev/null; then
+        log_warning "unzip 未安装，尝试安装..."
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq unzip
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y -q unzip
+        else
+            log_error "无法自动安装 unzip，请手动安装"
+            return 1
+        fi
+    fi
+    
+    # 获取最新版本信息
+    log_info "正在获取最新版本信息..."
+    local LATEST_VERSION
+    if command -v curl &> /dev/null; then
+        LATEST_VERSION=$(curl -s https://api.github.com/repos/langbot-app/LangBot/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    else
+        LATEST_VERSION=$(wget -qO- https://api.github.com/repos/langbot-app/LangBot/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    fi
+    
+    if [ -z "$LATEST_VERSION" ]; then
+        log_error "获取版本信息失败"
+        cd "$CURRENT_DIR"
+        return 1
+    fi
+    log_info "最新版本: $LATEST_VERSION"
+    
+    # 下载地址（使用 GitHub Release）
+    local DOWNLOAD_URL="https://github.com/langbot-app/LangBot/releases/download/${LATEST_VERSION}/langbot-${LATEST_VERSION}-all.zip"
+    local download_file="langbot-${LATEST_VERSION}-all.zip"
+    
+    # 国内镜像优化（使用 gh-proxy）
+    check_china
+    local IS_CHINA=$?
+    if [ $IS_CHINA -eq 0 ]; then
+        DOWNLOAD_URL="https://gh-proxy.com/${DOWNLOAD_URL}"
+        log_info "使用国内镜像加速: $DOWNLOAD_URL"
+    fi
+    
+    log_info "下载 Release 包: $download_file"
+    
+    if [ -f "$download_file" ]; then
+        log_warning "文件已存在，跳过下载"
+    else
+        if command -v curl &> /dev/null; then
+            curl -L -o "$download_file" "$DOWNLOAD_URL" --progress-bar
+        else
+            wget -O "$download_file" "$DOWNLOAD_URL" --show-progress
+        fi
+        
+        if [ $? -ne 0 ]; then
+            log_error "下载失败，请检查网络连接或手动下载"
+            cd "$CURRENT_DIR"
+            return 1
+        fi
+    fi
+    
+    log_success "下载完成: $download_file"
+    
+    # 解压Release包
+    log_info "解压 Release 包..."
+    local extract_dir="LangBot-${LATEST_VERSION}"
+    
+    if [ -d "$extract_dir" ]; then
+        log_warning "目录已存在，删除旧目录..."
+        rm -rf "$extract_dir"
+    fi
+    
+    mkdir -p "$extract_dir"
+    unzip -q "$download_file" -d "$extract_dir"
+    
+    if [ $? -ne 0 ]; then
+        log_error "解压失败"
+        cd "$CURRENT_DIR"
+        return 1
+    fi
+    
+    log_success "解压完成: $extract_dir"
+    
+    # 进入解压目录
+    cd "$extract_dir"
+    
+    # 安装uv
+    log_info "安装 uv..."
+    if ! command -v uv &> /dev/null; then
+        if command -v pip3 &> /dev/null; then
+            pip3 install uv
+        elif command -v pip &> /dev/null; then
+            pip install uv
+        else
+            log_error "无法安装 uv，请先安装 pip"
+            cd "$CURRENT_DIR"
+            return 1
+        fi
+        
+        if [ $? -ne 0 ]; then
+            log_error "uv 安装失败"
+            cd "$CURRENT_DIR"
+            return 1
+        fi
+    else
+        log_success "uv 已安装"
+    fi
+    
+    # 使用清华源安装uv（可选）
+    log_info "是否使用清华源安装依赖? (y/n)"
+    read -r use_tsinghua
+    if [[ $use_tsinghua =~ ^[Yy]$ ]]; then
+        log_info "使用清华源..."
+        pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+    fi
+    
+    # 同步依赖
+    log_info "同步依赖..."
+    uv sync
+    
+    if [ $? -ne 0 ]; then
+        log_error "依赖同步失败"
+        cd "$CURRENT_DIR"
+        return 1
+    fi
+    
+    log_success "依赖同步完成"
+    
+    # 运行主程序生成配置文件
+    log_info "运行主程序生成配置文件..."
+    log_info "首次运行将自动生成配置文件"
+    
+    read -p "是否立即运行主程序生成配置文件? (y/n): " -r run_now
+    if [[ $run_now =~ ^[Yy]$ ]]; then
+        uv run main.py
+        
+        if [ $? -eq 0 ]; then
+            log_success "配置文件生成完成"
+        else
+            log_warning "程序运行可能遇到问题，请检查输出"
+        fi
+    else
+        log_info "跳过运行主程序"
+        log_info "稍后可以使用 'uv run main.py' 启动程序"
+    fi
+    
+    cd "$CURRENT_DIR"
+    
+    log_success "========================================"
+    log_success "手动部署完成！"
+    log_success "========================================"
+    log_info "部署目录: $(pwd)/$extract_dir"
+    log_info "启动命令: cd $extract_dir && uv run main.py"
 }
 
 # 显示更新日志
