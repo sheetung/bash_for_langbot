@@ -47,7 +47,7 @@ bash_for_langbot/
 
 ## 部署命令说明
 
-### 主脚本
+<!-- ### 主脚本
 
 ```bash
 ./deploy/install.sh            # 显示菜单
@@ -61,7 +61,7 @@ bash_for_langbot/
 ./deploy/install.sh restart    # 重启 LangBot
 ./deploy/install.sh status     # 查看 LangBot 状态
 ./deploy/install.sh help       # 显示帮助信息
-```
+``` -->
 
 ## 功能特性
 
