@@ -91,6 +91,55 @@ show_menu() {
     echo "5. 退出"
     echo "========================================"
     echo -n "请选择部署方式 [1-5]: "
+    read -r choice
+    case $choice in
+        1)
+            log_info "启动包管理器部署..."
+            source "$(dirname "$0")/install-package.sh"
+            ;;
+        2)
+            log_info "启动手动部署..."
+            source "$(dirname "$0")/install-manual.sh"
+            ;;
+        3)
+            log_info "启动 Docker 部署..."
+            source "$(dirname "$0")/install-docker.sh"
+            ;;
+        4)
+            check_system
+            ;;
+        5)
+            log_info "退出脚本"
+            exit 0
+            ;;
+        *)
+            log_error "无效的选择，请输入 1-5"
+            exit 1
+            ;;
+    esac
+}
+
+# 显示帮助
+show_help() {
+    cat << EOF
+========================================================================
+    LangBot 一键部署脚本
+========================================================================
+
+用法:
+  ./install.sh                   # 显示菜单并选择部署方式
+  ./install.sh package           # 直接使用包管理器部署
+  ./install.sh manual            # 直接使用手动部署
+  ./install.sh docker            # 直接使用 Docker 部署
+  ./install.sh check             # 检查系统环境
+  ./install.sh help              # 显示帮助信息
+
+示例:
+  ./install.sh                   # 运行主菜单
+  ./install.sh docker            # 直接启动 Docker 部署
+
+========================================================================
+EOF
 }
 
 # 检查系统环境
@@ -192,17 +241,24 @@ main() {
         check)
             check_system
             ;;
+        help|--help|-h|usage|--usage)
+            show_help
+            ;;
         *)
+            # 显示菜单并直接等待用户输入
             show_menu
             read -r choice
             case $choice in
                 1)
+                    log_info "启动包管理器部署..."
                     source "$(dirname "$0")/install-package.sh"
                     ;;
                 2)
+                    log_info "启动手动部署..."
                     source "$(dirname "$0")/install-manual.sh"
                     ;;
                 3)
+                    log_info "启动 Docker 部署..."
                     source "$(dirname "$0")/install-docker.sh"
                     ;;
                 4)
@@ -213,7 +269,7 @@ main() {
                     exit 0
                     ;;
                 *)
-                    log_error "无效的选择"
+                    log_error "无效的选择，请输入 1-5"
                     exit 1
                     ;;
             esac
