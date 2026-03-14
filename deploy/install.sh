@@ -49,12 +49,15 @@ check_sudo() {
 
 # 检测是否在中国大陆
 check_china() {
-    # 尝试访问国内网站判断
-    if curl -s --connect-timeout 3 https://www.baidu.com > /dev/null 2>&1; then
-        log_info "检测到中国大陆网络环境"
+    # 使用 ipinfo.io 获取国家代码
+    log_info "检测网络环境..."
+    COUNTRY=$(curl -s ipinfo.io/country)
+    
+    if [ "$COUNTRY" = "CN" ]; then
+        log_info "检测到中国大陆网络环境 (国家代码: $COUNTRY)"
         
         # 检测是否能访问外网
-        if curl -s --connect-timeout 3 https://github.com > /dev/null 2>&1; then
+        if curl -s --connect-timeout 3 github.com > /dev/null 2>&1; then
             log_info "但可以访问外网，使用原始源"
             return 1  # 返回1表示不使用国内镜像
         else
@@ -62,7 +65,7 @@ check_china() {
             return 0  # 返回0表示使用国内镜像
         fi
     else
-        log_info "检测到非中国大陆网络环境"
+        log_info "检测到非中国大陆网络环境 (国家代码: $COUNTRY)"
         return 1
     fi
 }
