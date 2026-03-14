@@ -204,11 +204,24 @@ configure_langbot() {
 
 # 检查是否为中国网络环境
 check_china() {
-    # 尝试访问 Google 检测网络环境
-    if curl -s --connect-timeout 3 http://www.google.com > /dev/null 2>&1; then
-        return 1  # 非中国网络
+    # 使用 ipinfo.io 获取国家代码
+    log_info "检测网络环境..."
+    COUNTRY=$(curl -s ipinfo.io/country)
+    
+    if [ "$COUNTRY" = "CN" ]; then
+        log_info "检测到中国大陆网络环境 (国家代码: $COUNTRY)"
+        
+        # 检测是否能访问外网
+        if curl -s --connect-timeout 3 github.com > /dev/null 2>&1; then
+            log_info "但可以访问外网，使用原始源"
+            return 1  # 返回1表示不使用国内镜像
+        else
+            log_info "无法访问外网，使用国内镜像"
+            return 0  # 返回0表示使用国内镜像
+        fi
     else
-        return 0  # 中国网络
+        log_info "检测到非中国大陆网络环境 (国家代码: $COUNTRY)"
+        return 1
     fi
 }
 
