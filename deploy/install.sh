@@ -92,13 +92,14 @@ show_menu() {
     echo -e "${GREEN}5.${NC} 退出"
     echo -e "${CYAN}========================================${NC}"
     
-    # 检查是否有管道输入
-    if [ -p /dev/stdin ]; then
-        # 从管道读取输入
-        read -r choice
-    else
-        # 从终端读取输入
-        read -p "$(echo -e "${CYAN}请选择部署方式 [1-5]: ${NC}")" -r choice
+    # 从终端读取输入
+    read -p "$(echo -e "${CYAN}请选择部署方式 [1-5]: ${NC}")" -r choice
+    
+    # 保存原始输入
+    original_choice="$choice"
+    # 确保original_choice不为空
+    if [ -z "$original_choice" ]; then
+        original_choice="<空输入>"
     fi
     
     # 清理输入，移除可能的多余字符
@@ -107,7 +108,10 @@ show_menu() {
     
     # 检查输入是否为空
     if [ -z "$choice" ]; then
-        log_error "无效的选择，请输入 1-5"
+        echo ""
+        log_error "您输入的是: '$original_choice'"
+        log_error "输入有误，请重新输入 1-5"
+        read -p "按 Enter 继续..."
         show_menu
         return
     fi
@@ -122,21 +126,25 @@ show_menu() {
             echo ""
             log_success "LangBot 安装完成！"
             log_info "运行 'start-daemon' 启动服务"
+            read -p "按 Enter 继续..."
             show_menu
             ;;
         2)
             log_info "启动手动部署..."
             manual_deploy || { log_error "手动部署失败"; show_menu; return; }
+            read -p "按 Enter 继续..."
             show_menu
             ;;
         3)
             log_info "启动 Docker 部署..."
             docker_deploy || { log_error "Docker 部署失败"; show_menu; return; }
+            read -p "按 Enter 继续..."
             show_menu
             ;;
         4)
             log_info "检查系统环境..."
             check_system
+            read -p "按 Enter 继续..."
             show_menu
             ;;
         5)
@@ -144,7 +152,10 @@ show_menu() {
             exit 0
             ;;
         *)
-            log_error "无效的选择，请输入 1-5"
+            echo ""
+            log_error "您输入的是: '$original_choice'"
+            log_error "输入有误，请重新输入 1-5"
+            read -p "按 Enter 继续..."
             show_menu
             ;;
     esac
