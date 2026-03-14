@@ -131,6 +131,7 @@ show_menu() {
         4)
             log_info "检查系统环境..."
             check_system
+            show_menu
             ;;
         5)
             log_info "退出脚本"
@@ -138,7 +139,7 @@ show_menu() {
             ;;
         *)
             log_error "无效的选择，请输入 1-5"
-            exit 1
+            show_menu
             ;;
     esac
 }
