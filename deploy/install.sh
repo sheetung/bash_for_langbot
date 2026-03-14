@@ -568,7 +568,7 @@ download_langbot_release() {
         log_info "正在下载中，请勿中断..."
 
         # 使用 --progress-bar 显示下载进度，--max-time 设置最大下载时间（10分钟）
-        curl -L --progress-bar --max-time 600 -o "langbot-${LATEST_VERSION}-all.zip" "$DOWNLOAD_URL"
+        curl -L --progress-bar -o "langbot-${LATEST_VERSION}-all.zip" "$DOWNLOAD_URL"
         CURL_EXIT_CODE=$?
 
         if [ $CURL_EXIT_CODE -eq 0 ]; then
