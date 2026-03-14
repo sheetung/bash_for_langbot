@@ -632,7 +632,14 @@ generate_config() {
         log_info "首次运行将自动生成配置文件"
 
         cd "$BASE_DIR/LangBot"
-        python3 main.py
+
+        # 检查 uv 是否安装
+        if command -v uv &> /dev/null; then
+            uv run main.py
+        else
+            log_warning "uv 未安装，使用 python3 替代"
+            python3 main.py
+        fi
 
         if [ $? -eq 0 ]; then
             log_success "配置文件生成成功"
