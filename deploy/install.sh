@@ -90,9 +90,9 @@ show_menu() {
     echo "4. 检查系统环境"
     echo "5. 退出"
     echo "========================================"
-    echo -n "请选择部署方式 [1-5]: "
+    echo "请选择部署方式 [1-5]: "
     read -r choice
-    echo ""
+    echo "DEBUG: choice='$choice'"
     case $choice in
         1)
             log_info "启动包管理器部署..."
@@ -107,6 +107,7 @@ show_menu() {
             source "$(dirname "$0")/install-docker.sh"
             ;;
         4)
+            log_info "检查系统环境..."
             check_system
             ;;
         5)
