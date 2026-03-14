@@ -47,56 +47,7 @@ check_sudo() {
 
 # 显示更新日志
 show_changelog() {
-    clear
-    echo "========================================"
-    echo "    LangBot 一键部署脚本"
-    echo "    版本: 1.0.0"
-    echo "========================================"
-    echo ""
-    echo "更新日志:"
-    echo ""
-    echo "  ✨ 新功能:"
-    echo "    - 主脚本：支持 curl 下载，提供交互式菜单"
-    echo "    - 包管理器部署：使用 PyPI + uv 快速安装"
-    echo "    - 手动部署：支持从 Release 包安装，国内镜像加速"
-    echo "    - Docker 部署：支持 Docker Compose，国内环境优化"
-    echo "    - 一键安装：通过 curl 直接下载并运行"
-    echo ""
-    echo "  🔧 技术特性:"
-    echo "    - 国内环境优化（镜像源加速）"
-    echo "    - sudo 权限智能提示"
-    echo "    - 完整的日志和状态管理"
-    echo "    - 支持后台运行和进程管理"
-    echo "    - 自动依赖检查和安装"
-    echo ""
-    echo "========================================"
-    echo "1. 开始部署"
-    echo "2. 检查系统环境"
-    echo "3. 查看帮助"
-    echo "4. 退出"
-    echo "========================================"
-    read -p "请选择操作 [1-4]: " -r choice
-    # 清理输入，移除可能的多余字符
-    choice=$(echo "$choice" | tr -d '\r' | tr -d '\n' | sed 's/[^0-9]*//g')
-    case $choice in
-        1)
-            show_menu
-            ;;
-        2)
-            check_system
-            ;;
-        3)
-            show_help
-            ;;
-        4)
-            log_info "退出脚本"
-            exit 0
-            ;;
-        *)
-            log_error "无效的选择，请输入 1-4"
-            exit 1
-            ;;
-    esac
+    show_menu
 }
 
 # 显示菜单
@@ -104,6 +55,7 @@ show_menu() {
     clear
     echo "========================================"
     echo "    LangBot 一键部署脚本"
+    echo "    版本: 1.0.0"
     echo "========================================"
     echo "1. 包管理器部署 (PyPI + uv)"
     echo "2. 手动部署 (源码编译)"
@@ -118,15 +70,18 @@ show_menu() {
     case $choice in
         1)
             log_info "启动包管理器部署..."
-            source "$(dirname "$0")/install-package.sh"
+            "$(dirname "$0")/install-package.sh" install
+            show_menu
             ;;
         2)
             log_info "启动手动部署..."
-            source "$(dirname "$0")/install-manual.sh"
+            "$(dirname "$0")/install-manual.sh" install
+            show_menu
             ;;
         3)
             log_info "启动 Docker 部署..."
-            source "$(dirname "$0")/install-docker.sh"
+            "$(dirname "$0")/install-docker.sh" install
+            show_menu
             ;;
         4)
             log_info "检查系统环境..."
