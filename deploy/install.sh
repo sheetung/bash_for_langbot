@@ -399,10 +399,9 @@ install_add_docker_cn() {
     log_info "配置 Docker 国内镜像源..."
     
     # 检测是否为中国网络环境
-    check_china
-    local IS_CHINA=$?
+    local country=$(curl -s --max-time 3 ipinfo.io/country)
     
-    if [ $IS_CHINA -eq 0 ]; then
+    if [ "$country" = "CN" ]; then
         log_info "国内环境，配置国内镜像源..."
         sudo mkdir -p /etc/docker
         sudo tee /etc/docker/daemon.json > /dev/null << 'EOF'
@@ -412,28 +411,35 @@ install_add_docker_cn() {
     "https://docker.m.ixdev.cn",
     "https://hub.rat.dev",
     "https://dockerproxy.net",
+    "https://docker-registry.nmqu.com",
+    "https://docker.amingg.com",
     "https://docker.hlmirror.com",
+    "https://hub1.nat.tf",
+    "https://hub2.nat.tf",
+    "https://hub3.nat.tf",
     "https://docker.m.daocloud.io",
     "https://docker.kejilion.pro",
+    "https://docker.367231.xyz",
     "https://hub.1panel.dev",
     "https://dockerproxy.cool",
-    "https://docker.apiba.cn"
+    "https://docker.apiba.cn",
+    "https://proxy.vvvv.ee"
   ]
 }
 EOF
         log_success "Docker 国内镜像源配置完成"
-        
-        # 重启Docker服务
-        log_info "重启 Docker 服务..."
-        if command -v systemctl &> /dev/null; then
-            sudo systemctl daemon-reload
-            sudo systemctl restart docker
-        else
-            sudo service docker restart
-        fi
-        log_success "Docker 服务已重启"
     else
         log_info "非国内环境，使用默认镜像源"
+    fi
+
+    # 启动Docker服务
+    if command -v systemctl &> /dev/null; then
+        sudo systemctl enable docker
+        sudo systemctl start docker
+        log_success "Docker 服务已启动"
+    elif command -v service &> /dev/null; then
+        sudo service docker start
+        log_success "Docker 服务已启动"
     fi
 }
 
@@ -442,11 +448,22 @@ linuxmirrors_install_docker() {
     log_info "使用 LinuxMirrors 脚本安装 Docker..."
     
     # 检测是否为中国网络环境
-    check_china
-    local IS_CHINA=$?
+    local country=$(curl -s --max-time 3 ipinfo.io/country)
     
-    if [ $IS_CHINA -eq 0 ]; then
-        log_info "国内环境，使用国内镜像源安装..."
+    # 确保curl存在
+    if ! command -v curl &> /dev/null; then
+        log_info "安装 curl..."
+        if command -v apt &> /dev/null; then
+            sudo apt-get update && sudo apt-get install -y curl
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y curl
+        elif command -v dnf &> /dev/null; then
+            sudo dnf install -y curl
+        fi
+    fi
+    
+    if [ "$country" = "CN" ]; then
+        log_info "国内环境，使用华为云镜像源安装 Docker..."
         bash <(curl -sSL https://linuxmirrors.cn/docker.sh) \
           --source mirrors.huaweicloud.com/docker-ce \
           --source-registry docker.1ms.run \
@@ -456,7 +473,7 @@ linuxmirrors_install_docker() {
           --close-firewall false \
           --ignore-backup-tips
     else
-        log_info "非国内环境，使用官方源安装..."
+        log_info "海外环境，使用官方源安装 Docker..."
         bash <(curl -sSL https://linuxmirrors.cn/docker.sh) \
           --source download.docker.com \
           --source-registry registry.hub.docker.com \
@@ -471,6 +488,11 @@ linuxmirrors_install_docker() {
         log_success "Docker 安装完成"
         # 配置国内镜像源
         install_add_docker_cn
+        # 创建docker组（如果不存在）
+        if ! getent group docker > /dev/null; then
+            log_info "创建 docker 用户组..."
+            sudo groupadd docker
+        fi
         # 添加用户到docker组
         sudo usermod -aG docker $USER
         log_warning "请注销并重新登录以使 Docker 权限生效"
@@ -494,23 +516,10 @@ docker_deploy() {
     if ! command -v docker &> /dev/null; then
         log_warning "Docker 未安装，开始自动安装..."
         
-        # 检测操作系统类型
-        if [ -f /etc/os-release ]; then
-            . /etc/os-release
-            OS=$ID
-        fi
-        
-        # 使用linuxmirrors脚本安装Docker（支持apt/yum/dnf的系统）
-        if command -v apt &>/dev/null || command -v yum &>/dev/null || command -v dnf &>/dev/null; then
-            linuxmirrors_install_docker
+        # 使用新的install_docker函数
+        if install_docker; then
+            log_success "Docker 安装成功"
         else
-            log_error "不支持的操作系统，请手动安装 Docker"
-            log_info "请访问 https://docs.docker.com/engine/install/ 查看安装指南"
-            cd "$CURRENT_DIR"
-            return 1
-        fi
-        
-        if [ $? -ne 0 ]; then
             log_error "Docker 安装失败"
             cd "$CURRENT_DIR"
             return 1
