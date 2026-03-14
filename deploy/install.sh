@@ -249,18 +249,32 @@ check_system() {
     read -p "$(echo -e "${CYAN}按 Enter 继续...${NC}")"
 }
 
-# 安装依赖
+# 检查依赖
 install_dependencies() {
-    log_info "安装系统依赖..."
+    log_info "检查系统依赖..."
 
+    # 检查 curl 或 wget
+    if command -v curl &> /dev/null; then
+        log_success "curl 已安装"
+    elif command -v wget &> /dev/null; then
+        log_success "wget 已安装"
+    else
+        log_warning "curl 或 wget 未安装，请手动安装"
+    fi
+
+    # 检查 unzip
+    if command -v unzip &> /dev/null; then
+        log_success "unzip 已安装"
+    else
+        log_warning "unzip 未安装，请手动安装"
+    fi
+
+    # 检查 build-essential (Linux)
     if [ "$OS" = "Linux" ]; then
-        if command -v apt-get &> /dev/null; then
-            apt-get update -qq
-            apt-get install -y -qq curl wget unzip build-essential
-        elif command -v yum &> /dev/null; then
-            yum install -y -q curl wget unzip gcc
-        elif command -v brew &> /dev/null; then
-            brew install curl wget unzip
+        if command -v gcc &> /dev/null; then
+            log_success "gcc 已安装"
+        else
+            log_warning "gcc 未安装，请手动安装"
         fi
     fi
 }
@@ -294,27 +308,31 @@ install_uv() {
     check_china
     IS_CHINA=$?
 
-    # 安装 uv
+    # 安装 uv（使用 --user 选项避免需要 sudo 权限）
     if command -v pip3 &> /dev/null; then
         if [ $IS_CHINA -eq 0 ]; then
-            log_info "使用 pip3 安装 uv (清华源)..."
-            pip3 install uv -i https://pypi.tuna.tsinghua.edu.cn/simple || return 1
+            log_info "使用 pip3 安装 uv (清华源，用户级别)..."
+            pip3 install --user uv -i https://pypi.tuna.tsinghua.edu.cn/simple || return 1
         else
-            log_info "使用 pip3 安装 uv..."
-            pip3 install uv || return 1
+            log_info "使用 pip3 安装 uv (用户级别)..."
+            pip3 install --user uv || return 1
         fi
     elif command -v pip &> /dev/null; then
         if [ $IS_CHINA -eq 0 ]; then
-            log_info "使用 pip 安装 uv (清华源)..."
-            pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple || return 1
+            log_info "使用 pip 安装 uv (清华源，用户级别)..."
+            pip install --user uv -i https://pypi.tuna.tsinghua.edu.cn/simple || return 1
         else
-            log_info "使用 pip 安装 uv..."
-            pip install uv || return 1
+            log_info "使用 pip 安装 uv (用户级别)..."
+            pip install --user uv || return 1
         fi
     else
         log_error "无法找到 pip，请先安装 Python 和 pip"
         return 1
     fi
+
+    # 提示用户添加 PATH
+    log_info "注意：使用 --user 安装时，可能需要将 ~/.local/bin 添加到 PATH"
+    log_info "可以在 ~/.bashrc 或 ~/.zshrc 中添加：export PATH=~/.local/bin:$PATH"
 
     UV_VERSION=$(uv --version)
     log_success "uv 安装完成: $UV_VERSION"
@@ -509,34 +527,52 @@ show_status() {
 
 # 手动部署相关函数
 
-# 安装系统依赖（手动部署）
+# 检查系统依赖（手动部署）
 install_manual_dependencies() {
-    log_info "检查/安装系统依赖..."
+    log_info "检查系统依赖..."
 
     OS=$(uname -s)
-    if [ "$OS" = "Linux" ]; then
-        if command -v apt-get &> /dev/null; then
-            log_info "检测到 Debian/Ubuntu 系统，安装依赖..."
-            apt-get update -qq
-            apt-get install -y -qq curl wget unzip build-essential python3 python3-pip python3-venv
-        elif command -v yum &> /dev/null; then
-            log_info "检测到 CentOS/RHEL 系统，安装依赖..."
-            yum install -y -q curl wget unzip gcc python3 python3-pip
-        elif command -v pacman &> /dev/null; then
-            log_info "检测到 Arch Linux 系统，安装依赖..."
-            pacman -Sy --noconfirm curl wget unzip gcc python python-pip
-        fi
-    elif [ "$OS" = "Darwin" ]; then
-        if ! command -v brew &> /dev/null; then
-            log_warning "Homebrew 未安装，请先安装 Homebrew"
-            log_info "访问 https://brew.sh 了解安装方法"
-            return 1
-        fi
-        log_info "检测到 macOS，安装依赖..."
-        brew install curl wget unzip gcc python
+    
+    # 检查 curl 或 wget
+    if command -v curl &> /dev/null; then
+        log_success "curl 已安装"
+    elif command -v wget &> /dev/null; then
+        log_success "wget 已安装"
+    else
+        log_warning "curl 或 wget 未安装，请手动安装"
     fi
 
-    log_success "系统依赖安装完成"
+    # 检查 unzip
+    if command -v unzip &> /dev/null; then
+        log_success "unzip 已安装"
+    else
+        log_warning "unzip 未安装，请手动安装"
+    fi
+
+    # 检查 gcc
+    if command -v gcc &> /dev/null; then
+        log_success "gcc 已安装"
+    else
+        log_warning "gcc 未安装，请手动安装"
+    fi
+
+    # 检查 Python
+    if command -v python3 &> /dev/null; then
+        log_success "Python3 已安装"
+    else
+        log_warning "Python3 未安装，请手动安装"
+    fi
+
+    # 检查 pip
+    if command -v pip3 &> /dev/null; then
+        log_success "pip3 已安装"
+    elif command -v pip &> /dev/null; then
+        log_success "pip 已安装"
+    else
+        log_warning "pip 未安装，请手动安装"
+    fi
+
+    log_success "系统依赖检查完成"
 }
 
 # 下载 LangBot Release
@@ -741,7 +777,7 @@ check_docker() {
     log_info "检查 Docker 环境..."
 
     if ! command -v docker &> /dev/null; then
-        log_error "Docker 未安装，请先安装 Docker"
+        log_warning "Docker 未安装，请手动安装 Docker"
         log_info "访问 https://docs.docker.com/get-docker/ 了解安装方法"
         return 1
     fi
@@ -759,7 +795,7 @@ check_docker() {
         log_success "Docker Compose v2 已安装: $COMPOSE_VERSION"
         export HAS_COMPOSE=1
     else
-        log_error "Docker Compose 未安装"
+        log_warning "Docker Compose 未安装，请手动安装"
         log_info "访问 https://docs.docker.com/compose/install/ 了解安装方法"
         return 1
     fi
