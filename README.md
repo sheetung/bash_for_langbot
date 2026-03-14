@@ -7,7 +7,7 @@ LangBot 的自动化部署工具，支持三种部署方式：包管理器、手
 ### 方式一：curl 一键安装（推荐）
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sheetung/bash_for_langbot/master/deploy/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sheetung/bash_for_langbot/master/deploy/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 ```
 
 脚本会自动显示菜单，您只需选择对应的部署方式即可。
@@ -20,16 +20,7 @@ cd deploy
 
 # 查看菜单
 ./install.sh
-# 选择部署方式后自动进入对应安装流程
 
-# 或直接使用对应部署方式
-./install-package.sh install    # 包管理器部署
-./install-manual.sh install     # 手动部署
-./install-docker.sh install     # Docker 部署
-
-# 查看帮助
-./install.sh help
-```
 
 ## 部署方式对比
 
@@ -68,111 +59,6 @@ bash_for_langbot/
 ./deploy/install.sh manual     # 直接使用手动部署
 ./deploy/install.sh docker     # 直接使用 Docker 部署
 ```
-
-### 包管理器部署
-
-```bash
-./deploy/install-package.sh install      # 安装 LangBot
-./deploy/install-package.sh start        # 启动（前台）
-./deploy/install-package.sh start-daemon # 启动（后台）
-./deploy/install-package.sh stop         # 停止
-./deploy/install-package.sh restart      # 重启
-./deploy/install-package.sh status       # 查看状态
-```
-
-### 手动部署
-
-```bash
-./deploy/install-manual.sh install       # 安装 LangBot
-./deploy/install-manual.sh download      # 仅下载 Release 包
-./deploy/install-manual.sh start         # 启动（前台）
-./deploy/install-manual.sh start-daemon  # 启动（后台）
-./deploy/install-manual.sh stop          # 停止
-./deploy/install-manual.sh restart       # 重启
-./deploy/install-manual.sh status        # 查看状态
-```
-
-### Docker 部署
-
-```bash
-./deploy/install-docker.sh install        # 安装并启动
-./deploy/install-docker.sh start         # 启动
-./deploy/install-docker.sh stop          # 停止
-./deploy/install-docker.sh restart       # 重启
-./deploy/install-docker.sh status        # 查看状态
-./deploy/install-docker.sh logs          # 查看日志
-./deploy/install-docker.sh rebuild       # 重建容器
-./deploy/install-docker.sh reset-config  # 重置配置
-```
-
-## 国内环境优化
-
-Docker 部署已针对国内环境优化：
-
-- ✅ 使用国内镜像源：`docker.langbot.app/langbot-public/rockchin/langbot:latest`
-- ✅ 自动克隆仓库（使用 Gitee 镜像加速）
-- ✅ 配置文件备份机制
-
-如需切换回官方镜像源，编辑 `LangBot/docker/docker-compose.yaml`：
-
-```yaml
-services:
-  langbot:
-    image: docker.langbot.app/langbot-public/rockchin/langbot:latest  # 国内镜像
-    # image: ghcr.io/langbot-app/langbot:latest  # 官方镜像
-```
-
-## 访问地址
-
-| 部署方式 | WebUI 地址 | OneBot 端口 |
-|---------|-----------|------------|
-| 包管理器 | http://localhost:5300 | - |
-| 手动部署 | http://localhost:5300 | - |
-| Docker | http://localhost:5300 | 2280-2290 |
-
-## 系统要求
-
-### 包管理器/手动部署
-
-- **操作系统**：Windows, Linux, macOS
-- **Python**：3.8+
-- **uv**：自动安装
-- **依赖**：
-  - Linux: curl, wget, unzip, build-essential
-  - macOS: Homebrew
-  - Windows: 无需额外工具
-
-### Docker 部署
-
-- **Docker**：20.10+
-- **Docker Compose**：2.0+
-- **系统**：支持 Linux, macOS, Windows (with Docker Desktop)
-
-## 常见问题
-
-### 1. 权限问题
-
-Linux/macOS 可能需要执行权限：
-```bash
-chmod +x deploy/*.sh
-```
-
-### 2. sudo 权限
-
-脚本会在需要时自动提示输入 sudo 权限。
-
-### 3. 端口占用
-
-如果端口 5300 被占用，修改配置文件：
-
-**包管理器/手动部署**：编辑 `data/config.yaml`
-**Docker**：编辑 `LangBot/docker/docker-compose.yaml`
-
-### 4. 更新 LangBot
-
-- **包管理器**：`./deploy/install-package.sh restart`
-- **手动部署**：`./deploy/install-manual.sh download && ./deploy/install-manual.sh restart`
-- **Docker**：`./deploy/install-docker.sh rebuild`
 
 ## 配置文件
 
