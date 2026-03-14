@@ -41,7 +41,7 @@ show_menu() {
     echo -e "${YELLOW}2.${NC} 手动部署 (测试内容)"
     echo -e "${YELLOW}3.${NC} Docker 部署 (测试内容)"
     echo -e "${YELLOW}4.${NC} 检查系统环境 (测试内容)"
-    echo -e "${RED}5.${NC} 退出"
+    echo -e "${RED}0.${NC} 退出"
     echo -e "${CYAN}========================================${NC}"
 
     read -p "$(echo -e "${CYAN}请选择部署方式 [1-5]: ${NC}")" -r choice
@@ -105,7 +105,7 @@ show_menu() {
             read -p "按 Enter 继续..."
             show_menu
             ;;
-        5)
+        0)
             log_info "退出脚本"
             exit 0
             ;;
