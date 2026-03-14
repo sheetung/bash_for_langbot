@@ -41,11 +41,12 @@ show_menu() {
     echo -e "${GREEN}1.${NC} 包管理器部署 (PyPI + uv)"
     echo -e "${GREEN}2.${NC} 手动部署"
     echo -e "${GREEN}3.${GREEN} Docker 部署（推荐）"
-    echo -e "${YELLOW}4.${NC} 检查系统环境 (测试内容)"
-    echo -e "${RED}0.${NC} 退出"
+    echo -e "${YELLOW}4.${NC} 配置代理"
+    echo -e "${YELLOW}5.${NC} 检查系统环境 (测试内容)"
+    echo -e "${RED}6.${NC} 退出"
     echo -e "${CYAN}========================================${NC}"
 
-    read -p "$(echo -e "${CYAN}请选择部署方式 [1-5]: ${NC}")" -r choice
+    read -p "$(echo -e "${CYAN}请选择部署方式 [1-6]: ${NC}")" -r choice
 
     # 清理输入
     choice=$(echo "$choice" | tr -d '\r' | tr -d '\n' | sed 's/[^0-9]*//g')
@@ -76,20 +77,136 @@ show_menu() {
             show_menu
             ;;
         4)
+            log_info "配置代理..."
+            configure_proxy
+            read -p "按 Enter 继续..."
+            show_menu
+            ;;
+        5)
             log_info "检查系统环境 (测试内容)..."
             check_system
             read -p "按 Enter 继续..."
             show_menu
             ;;
-        0)
+        6)
             log_info "退出脚本"
             exit 0
             ;;
         *)
             echo ""
-            log_error "输入有误，请重新输入 1-5"
+            log_error "输入有误，请重新输入 1-6"
             read -p "按 Enter 继续..."
             show_menu
+            ;;
+    esac
+}
+
+# 配置代理
+configure_proxy() {
+    clear
+    echo -e "${CYAN}========================================${NC}"
+    echo -e "    ${BLUE}配置代理${NC}"
+    echo -e "${CYAN}========================================${NC}"
+    echo ""
+    echo -e "${YELLOW}当前代理设置:${NC}"
+    
+    # 显示当前代理设置
+    if [ -n "$http_proxy" ]; then
+        echo -e "  HTTP代理: ${GREEN}$http_proxy${NC}"
+    else
+        echo -e "  HTTP代理: ${RED}未设置${NC}"
+    fi
+    
+    if [ -n "$https_proxy" ]; then
+        echo -e "  HTTPS代理: ${GREEN}$https_proxy${NC}"
+    else
+        echo -e "  HTTPS代理: ${RED}未设置${NC}"
+    fi
+    
+    echo ""
+    echo -e "${CYAN}========================================${NC}"
+    echo -e "1. 设置HTTP代理"
+    echo -e "2. 设置HTTPS代理"
+    echo -e "3. 清除代理设置"
+    echo -e "4. 返回主菜单"
+    echo -e "${CYAN}========================================${NC}"
+    
+    read -p "$(echo -e "${CYAN}请选择操作 [1-4]: ${NC}")" -r proxy_choice
+    
+    case $proxy_choice in
+        1)
+            echo ""
+            read -p "$(echo -e "${YELLOW}请输入HTTP代理地址 (例如: http://127.0.0.1:7890): ${NC}")" -r proxy_url
+            if [ -n "$proxy_url" ]; then
+                export http_proxy="$proxy_url"
+                export HTTP_PROXY="$proxy_url"
+                log_success "HTTP代理已设置为: $proxy_url"
+                
+                # 询问是否保存到配置文件
+                read -p "$(echo -e "${YELLOW}是否保存代理设置到 ~/.bashrc? (y/n): ${NC}")" -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    # 移除旧的代理设置
+                    sed -i '/^export http_proxy=/d' ~/.bashrc
+                    sed -i '/^export HTTP_PROXY=/d' ~/.bashrc
+                    # 添加新的代理设置
+                    echo "export http_proxy=\"$proxy_url\"" >> ~/.bashrc
+                    echo "export HTTP_PROXY=\"$proxy_url\"" >> ~/.bashrc
+                    log_success "代理设置已保存到 ~/.bashrc"
+                fi
+            else
+                log_error "代理地址不能为空"
+            fi
+            ;;
+        2)
+            echo ""
+            read -p "$(echo -e "${YELLOW}请输入HTTPS代理地址 (例如: http://127.0.0.1:7890): ${NC}")" -r proxy_url
+            if [ -n "$proxy_url" ]; then
+                export https_proxy="$proxy_url"
+                export HTTPS_PROXY="$proxy_url"
+                log_success "HTTPS代理已设置为: $proxy_url"
+                
+                # 询问是否保存到配置文件
+                read -p "$(echo -e "${YELLOW}是否保存代理设置到 ~/.bashrc? (y/n): ${NC}")" -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    # 移除旧的代理设置
+                    sed -i '/^export https_proxy=/d' ~/.bashrc
+                    sed -i '/^export HTTPS_PROXY=/d' ~/.bashrc
+                    # 添加新的代理设置
+                    echo "export https_proxy=\"$proxy_url\"" >> ~/.bashrc
+                    echo "export HTTPS_PROXY=\"$proxy_url\"" >> ~/.bashrc
+                    log_success "代理设置已保存到 ~/.bashrc"
+                fi
+            else
+                log_error "代理地址不能为空"
+            fi
+            ;;
+        3)
+            echo ""
+            read -p "$(echo -e "${YELLOW}确定要清除所有代理设置吗? (y/n): ${NC}")" -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY
+                log_success "代理设置已清除"
+                
+                # 询问是否从配置文件中移除
+                read -p "$(echo -e "${YELLOW}是否从 ~/.bashrc 中移除代理设置? (y/n): ${NC}")" -n 1 -r
+                echo
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    sed -i '/^export http_proxy=/d' ~/.bashrc
+                    sed -i '/^export HTTP_PROXY=/d' ~/.bashrc
+                    sed -i '/^export https_proxy=/d' ~/.bashrc
+                    sed -i '/^export HTTPS_PROXY=/d' ~/.bashrc
+                    log_success "代理设置已从 ~/.bashrc 中移除"
+                fi
+            fi
+            ;;
+        4)
+            return 0
+            ;;
+        *)
+            log_error "无效的选择"
             ;;
     esac
 }
