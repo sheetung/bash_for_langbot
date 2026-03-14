@@ -7,7 +7,7 @@
 # 版本：1.0
 ##############################################################################
 
-set -e
+# set -e  # 移除严格错误检查，允许脚本在遇到错误时继续执行
 
 # 颜色定义
 RED='\033[0;31m'
@@ -342,9 +342,9 @@ install_langbot() {
         log_info "使用国内源加速下载..."
         # 设置国内PyPI镜像
         export UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-        uvx langbot@latest || return 1
+        uvx langbot@latest
     else
-        uvx langbot@latest || return 1
+        uvx langbot@latest
     fi
 
     if [ $? -eq 0 ]; then
@@ -352,6 +352,7 @@ install_langbot() {
         return 0
     else
         log_error "LangBot 安装失败"
+        log_error "请检查网络连接或稍后重试"
         return 1
     fi
 }
