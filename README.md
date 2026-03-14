@@ -58,7 +58,23 @@ bash_for_langbot/
 ./deploy/install.sh package    # 直接使用包管理器部署
 ./deploy/install.sh manual     # 直接使用手动部署
 ./deploy/install.sh docker     # 直接使用 Docker 部署
+./deploy/install.sh start      # 启动 LangBot（前台）
+./deploy/install.sh start-daemon  # 启动 LangBot（后台）
+./deploy/install.sh stop       # 停止 LangBot
+./deploy/install.sh restart    # 重启 LangBot
+./deploy/install.sh status     # 查看 LangBot 状态
+./deploy/install.sh help       # 显示帮助信息
 ```
+
+## 功能特性
+
+- ✅ 三种部署方式：包管理器、手动部署、Docker 部署
+- ✅ 国内环境优化（镜像源加速）
+- ✅ 智能错误处理（失败时返回菜单，不直接退出）
+- ✅ 完整的服务管理（启动、停止、重启、状态）
+- ✅ 系统环境自动检查
+- ✅ 后台运行支持
+- ✅ 详细的日志和状态管理
 
 ## 配置文件
 

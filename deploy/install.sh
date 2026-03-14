@@ -104,10 +104,10 @@ show_menu() {
     case $choice in
         1)
             log_info "启动包管理器部署..."
-            create_directories
-            install_uv
-            install_langbot
-            configure_langbot
+            create_directories || { log_error "创建目录失败"; show_menu; return; }
+            install_uv || { log_error "安装 uv 失败"; show_menu; return; }
+            install_langbot || { log_error "安装 LangBot 失败"; show_menu; return; }
+            configure_langbot || { log_error "配置 LangBot 失败"; show_menu; return; }
             echo ""
             log_success "LangBot 安装完成！"
             log_info "运行 'start-daemon' 启动服务"
@@ -222,7 +222,7 @@ check_system() {
         log_success "wget 已安装"
     else
         log_error "curl 或 wget 未安装，请先安装"
-        exit 1
+        return 1
     fi
 
     echo ""
@@ -253,14 +253,14 @@ create_directories() {
 
     # 确保在正确的工作目录
     if [ ! -d "LangBot" ]; then
-        mkdir -p LangBot
+        mkdir -p LangBot || return 1
     fi
     
-    cd LangBot
+    cd LangBot || return 1
     
-    mkdir -p logs
-    mkdir -p data
-    mkdir -p config
+    mkdir -p logs || return 1
+    mkdir -p data || return 1
+    mkdir -p config || return 1
 
     log_success "目录创建完成"
 }
@@ -284,18 +284,18 @@ install_uv() {
     if command -v pip3 &> /dev/null; then
         if [ $IS_CHINA -eq 0 ]; then
             log_info "使用 pip3 安装 uv (国内源)..."
-            pip3 install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+            pip3 install uv -i https://pypi.tuna.tsinghua.edu.cn/simple || return 1
         else
             log_info "使用 pip3 安装 uv..."
-            pip3 install uv
+            pip3 install uv || return 1
         fi
     elif command -v pip &> /dev/null; then
         if [ $IS_CHINA -eq 0 ]; then
             log_info "使用 pip 安装 uv (国内源)..."
-            pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple
+            pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple || return 1
         else
             log_info "使用 pip 安装 uv..."
-            pip install uv
+            pip install uv || return 1
         fi
     else
         log_error "无法找到 pip，请先安装 Python 和 pip"
@@ -328,9 +328,9 @@ install_langbot() {
         log_info "使用国内源加速下载..."
         # 设置国内PyPI镜像
         export UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
-        uvx langbot@latest
+        uvx langbot@latest || return 1
     else
-        uvx langbot@latest
+        uvx langbot@latest || return 1
     fi
 
     if [ $? -eq 0 ]; then
