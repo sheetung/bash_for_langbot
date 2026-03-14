@@ -537,8 +537,22 @@ download_langbot_release() {
     cd "$(dirname "$0")/.."
 
     # 创建 LangBot 目录
-    mkdir -p LangBot
-    cd LangBot
+    if mkdir -p LangBot; then
+        log_info "LangBot 目录创建成功"
+    else
+        log_error "无法创建 LangBot 目录 (权限不足)"
+        log_info "请尝试使用 sudo 运行脚本，或确保当前用户有目录创建权限"
+        cd "$CURRENT_DIR"
+        return 1
+    fi
+    
+    if cd LangBot; then
+        log_info "进入 LangBot 目录成功"
+    else
+        log_error "无法进入 LangBot 目录"
+        cd "$CURRENT_DIR"
+        return 1
+    fi
 
     # 获取最新版本信息
     log_info "正在获取最新版本信息..."
