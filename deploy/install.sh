@@ -83,7 +83,7 @@ show_menu() {
     clear
     echo -e "${CYAN}========================================${NC}"
     echo -e "    ${PURPLE}LangBot 一键部署脚本${NC}"
-    echo -e "    ${YELLOW}版本: 1.0.0${NC}"
+    echo -e "    ${YELLOW}版本: 0.0.2${NC}"
     echo -e "${CYAN}========================================${NC}"
     echo -e "${GREEN}1.${NC} 包管理器部署 (PyPI + uv)"
     echo -e "${GREEN}2.${NC} 手动部署 (源码编译)"
@@ -271,12 +271,7 @@ install_dependencies() {
 create_directories() {
     log_info "创建必要的目录..."
 
-    # 获取脚本所在目录的绝对路径
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    # 切换到项目根目录
-    cd "$SCRIPT_DIR/.." || return 1
-
-    # 确保在正确的工作目录
+    # 在当前目录创建 LangBot 目录
     if [ ! -d "LangBot" ]; then
         mkdir -p LangBot || return 1
     fi
@@ -551,15 +546,6 @@ download_langbot_release() {
     # 保存当前目录
     CURRENT_DIR=$(pwd)
     
-    # 获取脚本所在目录的绝对路径
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    # 切换到项目根目录
-    cd "$SCRIPT_DIR/.." || {
-        log_error "无法切换到项目根目录"
-        cd "$CURRENT_DIR"
-        return 1
-    }
-
     # 创建 LangBot 目录
     if mkdir -p LangBot; then
         log_info "LangBot 目录创建成功"
@@ -783,11 +769,7 @@ check_docker() {
 clone_langbot_repo() {
     log_info "克隆 LangBot 仓库..."
 
-    # 获取脚本所在目录的绝对路径
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    # 切换到项目根目录
-    cd "$SCRIPT_DIR/.." || return 1
-    # 进入 LangBot 目录
+    # 进入当前目录的 LangBot 目录
     cd "LangBot" || return 1
 
     if [ -d "docker" ]; then
@@ -815,11 +797,7 @@ clone_langbot_repo() {
 configure_docker_compose() {
     log_info "配置 Docker Compose（国内环境优化）..."
 
-    # 获取脚本所在目录的绝对路径
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    # 切换到项目根目录
-    cd "$SCRIPT_DIR/.." || return 1
-    # 进入 LangBot 目录
+    # 进入当前目录的 LangBot 目录
     cd "LangBot" || return 1
 
     # 检查 docker-compose.yaml 是否存在
@@ -855,11 +833,7 @@ configure_docker_compose() {
 pull_docker_image() {
     log_info "拉取 Docker 镜像..."
 
-    # 获取脚本所在目录的绝对路径
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    # 切换到项目根目录
-    cd "$SCRIPT_DIR/.." || return 1
-    # 进入 LangBot/docker 目录
+    # 进入当前目录的 LangBot/docker 目录
     cd "LangBot/docker" || return 1
 
     if [ "$HAS_COMPOSE" = 1 ]; then
@@ -875,11 +849,7 @@ pull_docker_image() {
 start_langbot_docker() {
     log_info "启动 LangBot 容器..."
 
-    # 获取脚本所在目录的绝对路径
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    # 切换到项目根目录
-    cd "$SCRIPT_DIR/.." || return 1
-    # 进入 LangBot/docker 目录
+    # 进入当前目录的 LangBot/docker 目录
     cd "LangBot/docker" || return 1
 
     if [ "$HAS_COMPOSE" = 1 ]; then
