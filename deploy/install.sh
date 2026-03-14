@@ -620,42 +620,76 @@ download_langbot_release() {
 install_python_deps() {
     log_info "安装 Python 依赖..."
 
-    cd "$(dirname "$0")/../LangBot"
+    # 保存当前工作目录
+    CURRENT_DIR=$(pwd)
+    BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-    # 使用 uv sync 安装依赖
-    if command -v uv &> /dev/null; then
-        uv sync || return 1
+    cd "$BASE_DIR/LangBot"
+
+    # 检查虚拟环境是否存在
+    if [ ! -d "venv" ]; then
+        log_info "未找到虚拟环境，正在创建..."
+        python3 -m venv venv || { log_error "创建虚拟环境失败"; cd "$CURRENT_DIR"; return 1; }
+        log_success "虚拟环境创建完成"
+
+        # 激活虚拟环境并安装依赖
+        log_info "安装 Python 依赖..."
+        source venv/bin/activate || { log_error "激活虚拟环境失败"; cd "$CURRENT_DIR"; return 1; }
+        if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt || { log_error "安装依赖失败"; deactivate; cd "$CURRENT_DIR"; return 1; }
+        else
+            log_warning "未找到 requirements.txt，跳过依赖安装"
+        fi
+        deactivate
         log_success "依赖安装完成"
     else
-        log_error "uv 未安装，请先安装 uv"
-        return 1
+        log_success "虚拟环境已存在"
+        log_info "检查 requirements.txt 是否存在..."
+        if [ -f "requirements.txt" ]; then
+            log_info "运行 pip install -r requirements.txt..."
+            source venv/bin/activate || { log_error "激活虚拟环境失败"; cd "$CURRENT_DIR"; return 1; }
+            pip install -r requirements.txt || { log_error "更新依赖失败"; deactivate; cd "$CURRENT_DIR"; return 1; }
+            deactivate
+            log_success "依赖检查完成"
+        else
+            log_warning "未找到 requirements.txt，跳过依赖检查"
+        fi
     fi
+
+    # 返回原始目录
+    cd "$CURRENT_DIR"
 }
 
 # 生成配置文件（手动部署）
 generate_config() {
     log_info "生成配置文件..."
 
-    cd "$(dirname "$0")/.."
+    # 保存当前工作目录
+    CURRENT_DIR=$(pwd)
+    BASE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+    cd "$BASE_DIR"
 
     # 检查是否需要生成配置
     if [ ! -f "data/config.yaml" ]; then
         log_info "首次运行将自动生成配置文件"
 
-        cd LangBot
+        cd "$BASE_DIR/LangBot"
         uv run main.py
 
         if [ $? -eq 0 ]; then
             log_success "配置文件生成成功"
         else
             log_error "配置文件生成失败"
+            cd "$CURRENT_DIR"
             return 1
         fi
     else
         log_success "配置文件已存在"
     fi
 
-    cd "$(dirname "$0")/.."
+    # 返回原始目录
+    cd "$CURRENT_DIR"
 }
 
 # 手动部署 LangBot
