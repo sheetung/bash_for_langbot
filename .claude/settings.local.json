@@ -19,7 +19,9 @@
       "Bash(curl:*)",
       "Bash(git remote:*)",
       "Bash(./deploy/install.sh help:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(printf:*)",
+      "Bash(bash << 'EOF'\necho \"2\" | ./deploy/install.sh\nEOF)"
     ]
   }
 }

@@ -92,6 +92,7 @@ show_menu() {
     echo "========================================"
     echo -n "请选择部署方式 [1-5]: "
     read -r choice
+    echo ""
     case $choice in
         1)
             log_info "启动包管理器部署..."
@@ -245,34 +246,8 @@ main() {
             show_help
             ;;
         *)
-            # 显示菜单并直接等待用户输入
+            # 显示菜单并等待用户输入
             show_menu
-            read -r choice
-            case $choice in
-                1)
-                    log_info "启动包管理器部署..."
-                    source "$(dirname "$0")/install-package.sh"
-                    ;;
-                2)
-                    log_info "启动手动部署..."
-                    source "$(dirname "$0")/install-manual.sh"
-                    ;;
-                3)
-                    log_info "启动 Docker 部署..."
-                    source "$(dirname "$0")/install-docker.sh"
-                    ;;
-                4)
-                    check_system
-                    ;;
-                5)
-                    log_info "退出脚本"
-                    exit 0
-                    ;;
-                *)
-                    log_error "无效的选择，请输入 1-5"
-                    exit 1
-                    ;;
-            esac
             ;;
     esac
 }
