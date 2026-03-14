@@ -289,10 +289,10 @@ install_uv() {
     check_china
     IS_CHINA=$?
 
-    # 检测系统类型
+    # 安装 uv
     if command -v pip3 &> /dev/null; then
         if [ $IS_CHINA -eq 0 ]; then
-            log_info "使用 pip3 安装 uv (国内源)..."
+            log_info "使用 pip3 安装 uv (清华源)..."
             pip3 install uv -i https://pypi.tuna.tsinghua.edu.cn/simple || return 1
         else
             log_info "使用 pip3 安装 uv..."
@@ -300,7 +300,7 @@ install_uv() {
         fi
     elif command -v pip &> /dev/null; then
         if [ $IS_CHINA -eq 0 ]; then
-            log_info "使用 pip 安装 uv (国内源)..."
+            log_info "使用 pip 安装 uv (清华源)..."
             pip install uv -i https://pypi.tuna.tsinghua.edu.cn/simple || return 1
         else
             log_info "使用 pip 安装 uv..."
@@ -589,28 +589,13 @@ install_python_deps() {
 
     cd "$(dirname "$0")/../LangBot"
 
-    # 检查是否已安装依赖
-    if [ -f "requirements.txt" ]; then
-        log_info "使用 requirements.txt 安装依赖..."
-
-        # 使用 uv 安装
-        if command -v uv &> /dev/null; then
-            uv sync || return 1
-        else
-            # 使用 pip 安装
-            if command -v pip3 &> /dev/null; then
-                pip3 install -r requirements.txt || return 1
-            elif command -v pip &> /dev/null; then
-                pip install -r requirements.txt || return 1
-            else
-                log_error "无法找到 pip，请先安装 Python 和 pip"
-                return 1
-            fi
-        fi
-
+    # 使用 uv sync 安装依赖
+    if command -v uv &> /dev/null; then
+        uv sync || return 1
         log_success "依赖安装完成"
     else
-        log_warning "未找到 requirements.txt，跳过依赖安装"
+        log_error "uv 未安装，请先安装 uv"
+        return 1
     fi
 }
 
@@ -645,7 +630,6 @@ manual_deploy() {
     log_info "开始手动部署 LangBot..."
 
     create_directories || { log_error "创建目录失败"; return 1; }
-    install_manual_dependencies || { log_error "安装系统依赖失败"; return 1; }
     install_uv || { log_error "安装 uv 失败"; return 1; }
     download_langbot_release || { log_error "下载 LangBot Release 失败"; return 1; }
     install_python_deps || { log_error "安装 Python 依赖失败"; return 1; }
