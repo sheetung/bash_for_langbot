@@ -353,6 +353,18 @@ manual_deploy() {
     
     # 同步依赖
     log_info "同步依赖..."
+    
+    # 检测国内环境并配置清华源
+    check_china
+    local IS_CHINA=$?
+    if [ $IS_CHINA -eq 0 ]; then
+        log_info "国内环境，使用清华源..."
+        export UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+        log_success "已临时配置清华源"
+    else
+        log_info "非国内环境，使用默认源"
+    fi
+
     uv sync
     
     if [ $? -ne 0 ]; then
