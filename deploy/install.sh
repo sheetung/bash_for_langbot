@@ -49,12 +49,9 @@ check_sudo() {
 
 # 检测是否在中国大陆
 check_china() {
-    # 使用 ipinfo.io 获取国家代码
-    log_info "检测网络环境..."
-    COUNTRY=$(curl -s ipinfo.io/country)
-    
-    if [ "$COUNTRY" = "CN" ]; then
-        log_info "检测到中国大陆网络环境 (国家代码: $COUNTRY)"
+    # 尝试访问国内网站判断
+    if curl -s --connect-timeout 3 https://www.baidu.com > /dev/null 2>&1; then
+        log_info "检测到中国大陆网络环境"
         
         # 检测是否能访问外网
         if curl -s --connect-timeout 3 https://github.com > /dev/null 2>&1; then
@@ -65,7 +62,7 @@ check_china() {
             return 0  # 返回0表示使用国内镜像
         fi
     else
-        log_info "检测到非中国大陆网络环境 (国家代码: $COUNTRY)"
+        log_info "检测到非中国大陆网络环境"
         return 1
     fi
 }
@@ -555,7 +552,7 @@ download_langbot_release() {
     check_china
     IS_CHINA=$?
     if [ $IS_CHINA -eq 0 ]; then
-        DOWNLOAD_URL="https://ghproxy.net/${DOWNLOAD_URL}"
+        DOWNLOAD_URL="https://gh-proxy.com/${DOWNLOAD_URL}"
         log_info "使用国内镜像加速: $DOWNLOAD_URL"
     fi
 
