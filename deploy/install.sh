@@ -526,15 +526,31 @@ manual_deploy() {
 }
 
 # 配置Docker国内镜像源
+# 配置Docker国内镜像源 (全局镜像加速版)
 install_add_docker_cn() {
-    log_info "配置 Docker 国内镜像源..."
+    log_info "检查是否需要配置 Docker 全局国内镜像源..."
     
-    # 检测是否为中国网络环境
+    # 综合判断国内环境 (ipinfo 有时也会被墙，加入双重校验)
+    local is_cn=0
     local country=$(curl -s --max-time 3 ipinfo.io/country)
     
     if [ "$country" = "CN" ]; then
-        log_info "国内环境，配置国内镜像源..."
+        is_cn=1
+    else
+        # 兜底：复用脚本里自有的检测函数
+        check_china
+        if [ $? -eq 0 ]; then
+            is_cn=1
+        fi
+    fi
+    
+    if [ $is_cn -eq 1 ]; then
+        log_info "检测到国内环境，正在写入多重备用镜像源到 daemon.json..."
+        
+        # 确保目录存在
         sudo mkdir -p /etc/docker
+        
+        # 使用 sudo tee 安全写入配置文件，防止权限拒绝
         sudo tee /etc/docker/daemon.json > /dev/null << 'EOF'
 {
   "registry-mirrors": [
@@ -558,22 +574,24 @@ install_add_docker_cn() {
   ]
 }
 EOF
-        log_success "Docker 国内镜像源配置完成"
-    else
-        log_info "非国内环境，使用默认镜像源"
-    fi
+        log_success "daemon.json 写入成功"
 
-    # 启动Docker服务
-    if command -v systemctl &> /dev/null; then
-        sudo systemctl enable docker
-        sudo systemctl start docker
-        log_success "Docker 服务已启动"
-    elif command -v service &> /dev/null; then
-        sudo service docker start
-        log_success "Docker 服务已启动"
+        log_info "正在重启 Docker 服务以应用加速节点..."
+        if command -v systemctl &> /dev/null; then
+            sudo systemctl daemon-reload
+            sudo systemctl enable docker
+            sudo systemctl restart docker
+            log_success "Docker 服务已成功重启"
+        elif command -v service &> /dev/null; then
+            sudo service docker restart
+            log_success "Docker 服务已成功重启"
+        else
+            log_warning "未能自动重启 Docker 服务，请手动重启"
+        fi
+    else
+        log_info "非国内环境，保持默认 Docker 源配置"
     fi
 }
-
 auto_install_docker() {
     log_info "开始自动化安装 Docker..."
     
